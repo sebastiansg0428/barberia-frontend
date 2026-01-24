@@ -1,0 +1,143 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { registerUser, getAllUsers } from '../services/authService';
+import './Register.css';
+
+function Register() {
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (!fullName || !email || !password || !confirmPassword) {
+        throw new Error('Por favor completa todos los campos');
+      }
+
+      if (password !== confirmPassword) {
+        throw new Error('Las contraseñas no coinciden');
+      }
+
+      if (password.length < 6) {
+        throw new Error('La contraseña debe tener al menos 6 caracteres');
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error('Por favor ingresa un email válido');
+      }
+
+      registerUser(email, password, fullName);
+      navigate('/login');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoRegister = () => {
+    setFullName('Usuario Demo');
+    setEmail('demo@barberia.com');
+    setPassword('demo123');
+    setConfirmPassword('demo123');
+  };
+
+  return (
+    <div className="register-container">
+      <div className="register-box">
+        <div className="register-header">
+          <h1>Barbería K-19</h1>
+          <p>Crear Cuenta</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="register-form">
+          <div className="form-group">
+            <label htmlFor="fullName">Nombre Completo</label>
+            <input
+              type="text"
+              id="fullName"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Tu nombre completo"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="email">Correo Electrónico</label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="tu@email.com"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Contraseña</label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="confirmPassword">Confirmar Contraseña</label>
+            <input
+              type="password"
+              id="confirmPassword"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              disabled={loading}
+            />
+          </div>
+
+          {error && <div className="error-message">{error}</div>}
+
+          <button type="submit" disabled={loading} className="btn-register">
+            {loading ? 'Registrando...' : 'Crear Cuenta'}
+          </button>
+        </form>
+
+        <div className="register-footer">
+          <p>¿Ya tienes cuenta?</p>
+          <button
+            type="button"
+            className="btn-login-link"
+            onClick={() => navigate('/login')}
+          >
+            Inicia sesión aquí
+          </button>
+        </div>
+
+        <div className="demo-section">
+          <p>Demo: haz clic para cargar datos de prueba</p>
+          <button
+            type="button"
+            className="btn-demo"
+            onClick={handleDemoRegister}
+          >
+            Cargar Demo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Register;
