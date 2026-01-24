@@ -29,7 +29,7 @@ export const registerUser = (email, password, fullName) => {
     password, // En producción: hashear la contraseña
     fullName,
     createdAt: new Date().toISOString(),
-    isAdmin: email === 'bardemo@beria.com' ? true : users.length === 0 // Demo siempre admin
+    isAdmin: email === 'juanjo@k19.com' ? true : users.length === 0 // juanjo@k19.com siempre admin
   };
 
   users.push(newUser);

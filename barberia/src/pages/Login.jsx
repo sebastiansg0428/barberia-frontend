@@ -17,7 +17,7 @@ function Login() {
 
     try {
       if (!email || !password) {
-        throw new Error("Por favor completa todos los campos");
+        throw new Error("Por favor completa todos los campos para iniciar sesión");
       }
 
       // login puede lanzar error si no es válido
@@ -31,8 +31,8 @@ function Login() {
   };
 
   const handleDemoLogin = () => {
-    setEmail("bardemo@beria.com");
-    setPassword("demo123");
+    setEmail("juanjo@k19.com");
+    setPassword("123456");
   };
 
   return (
