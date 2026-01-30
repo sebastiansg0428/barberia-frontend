@@ -1,41 +1,51 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { registerUser, getAllUsers } from '../services/authService';
-import './Register.css';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import "./Register.css";
 
 function Register() {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       if (!fullName || !email || !password || !confirmPassword) {
-        throw new Error('Por favor completa todos los campos');
+        throw new Error("Por favor completa todos los campos");
       }
 
       if (password !== confirmPassword) {
-        throw new Error('Las contraseñas no coinciden');
+        throw new Error("Las contraseñas no coinciden");
       }
 
       if (password.length < 6) {
-        throw new Error('La contraseña debe tener al menos 6 caracteres');
+        throw new Error("La contraseña debe tener al menos 6 caracteres");
       }
 
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        throw new Error('Por favor ingresa un email válido');
+        throw new Error("Por favor ingresa un email válido");
       }
 
-      registerUser(email, password, fullName);
-      navigate('/login');
+      // Llamar al backend para registrar usuario
+      const response = await fetch("http://localhost:3000/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al registrar");
+      }
+      // Registro exitoso
+      navigate("/login");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -44,10 +54,10 @@ function Register() {
   };
 
   const handleDemoRegister = () => {
-    setFullName('Usuario Demo');
-    setEmail('demo@barberia.com');
-    setPassword('demo123');
-    setConfirmPassword('demo123');
+    setFullName("Usuario Demo");
+    setEmail("demo@barberia.com");
+    setPassword("demo123");
+    setConfirmPassword("demo123");
   };
 
   return (
@@ -110,7 +120,7 @@ function Register() {
           {error && <div className="error-message">{error}</div>}
 
           <button type="submit" disabled={loading} className="btn-register">
-            {loading ? 'Registrando...' : 'Crear Cuenta'}
+            {loading ? "Registrando..." : "Crear Cuenta"}
           </button>
         </form>
 
@@ -119,7 +129,7 @@ function Register() {
           <button
             type="button"
             className="btn-login-link"
-            onClick={() => navigate('/login')}
+            onClick={() => navigate("/login")}
           >
             Inicia sesión aquí
           </button>

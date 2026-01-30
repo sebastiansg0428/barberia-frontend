@@ -10,25 +10,24 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      if (!email || !password) {
-        throw new Error("Por favor completa todos los campos para iniciar sesión");
-      }
-
-      // login puede lanzar error si no es válido
-      login(email, password);
-      navigate("/dashboard");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+  try {
+    if (!email || !password) {
+      throw new Error("Por favor completa todos los campos para iniciar sesión");
     }
-  };
+
+    await login(email, password); // Espera la respuesta del backend
+    navigate("/dashboard");
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDemoLogin = () => {
     setEmail("juanjo@k19.com");
