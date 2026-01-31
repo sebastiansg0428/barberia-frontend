@@ -192,6 +192,11 @@ function Dashboard() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Email
                       </th>
+
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Teléfono
+                      </th>
+
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rol
                       </th>
@@ -246,6 +251,23 @@ function Dashboard() {
                             </span>
                           )}
                         </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editUserId === user.id ? (
+                            <input
+                              type="tel"
+                              name="telefono"
+                              value={editForm.telefono}
+                              onChange={handleEditChange}
+                              className="w-full px-2 py-1 border border-purple-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            />
+                          ) : (
+                            <span className="text-sm text-gray-900">
+                              {user.telefono}
+                            </span>
+                          )}
+                        </td>
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           {editUserId === user.id ? (
                             <select
@@ -318,12 +340,18 @@ function Dashboard() {
             </div>
 
             {/* Botón Servicios */}
-            <div className="text-center">
+            <div className="text-center space-x-4">
               <button
                 onClick={() => navigate("/servicios")}
                 className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-purple-700 hover:to-indigo-700 transform transition hover:scale-105 shadow-lg"
               >
                 🚀 Ir a Gestión de Servicios
+              </button>
+              <button
+                onClick={() => navigate("/citas")}
+                className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-teal-700 transform transition hover:scale-105 shadow-lg"
+              >
+                📅 Ir a Gestión de Citas
               </button>
             </div>
           </>

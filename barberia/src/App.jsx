@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Servicios from "./pages/servicios";
+import Citas from "./pages/Citas";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -21,6 +22,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Servicios />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/citas"
+          element={
+            <ProtectedRoute>
+              <Citas />
             </ProtectedRoute>
           }
         />
