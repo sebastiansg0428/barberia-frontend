@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 import "./Register.css";
 
 function Register() {
-  const [fullName, setFullName] = useState("");
+  const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -18,19 +17,16 @@ function Register() {
     setLoading(true);
 
     try {
-      if (!fullName || !email || !password || !confirmPassword) {
+      if (!nombre || !email || !password || !confirmPassword) {
         throw new Error("Por favor completa todos los campos");
       }
-
       if (password !== confirmPassword) {
         throw new Error("Las contraseñas no coinciden");
       }
-
       if (password.length < 6) {
         throw new Error("La contraseña debe tener al menos 6 caracteres");
       }
-
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
         throw new Error("Por favor ingresa un email válido");
       }
 
@@ -38,7 +34,7 @@ function Register() {
       const response = await fetch("http://localhost:3000/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, nombre }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -53,13 +49,6 @@ function Register() {
     }
   };
 
-  const handleDemoRegister = () => {
-    setFullName("Usuario Demo");
-    setEmail("demo@barberia.com");
-    setPassword("demo123");
-    setConfirmPassword("demo123");
-  };
-
   return (
     <div className="register-container">
       <div className="register-box">
@@ -67,20 +56,18 @@ function Register() {
           <h1>Barbería K-19</h1>
           <p>Crear Cuenta</p>
         </div>
-
         <form onSubmit={handleSubmit} className="register-form">
           <div className="form-group">
-            <label htmlFor="fullName">Nombre Completo</label>
+            <label htmlFor="nombre">Nombre Completo</label>
             <input
               type="text"
-              id="fullName"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              id="nombre"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
               placeholder="Tu nombre completo"
               disabled={loading}
             />
           </div>
-
           <div className="form-group">
             <label htmlFor="email">Correo Electrónico</label>
             <input
@@ -92,7 +79,6 @@ function Register() {
               disabled={loading}
             />
           </div>
-
           <div className="form-group">
             <label htmlFor="password">Contraseña</label>
             <input
@@ -104,7 +90,6 @@ function Register() {
               disabled={loading}
             />
           </div>
-
           <div className="form-group">
             <label htmlFor="confirmPassword">Confirmar Contraseña</label>
             <input
@@ -116,14 +101,11 @@ function Register() {
               disabled={loading}
             />
           </div>
-
           {error && <div className="error-message">{error}</div>}
-
           <button type="submit" disabled={loading} className="btn-register">
             {loading ? "Registrando..." : "Crear Cuenta"}
           </button>
         </form>
-
         <div className="register-footer">
           <p>¿Ya tienes cuenta?</p>
           <button
@@ -132,17 +114,6 @@ function Register() {
             onClick={() => navigate("/login")}
           >
             Inicia sesión aquí
-          </button>
-        </div>
-
-        <div className="demo-section">
-          <p>Demo: haz clic para cargar datos de prueba</p>
-          <button
-            type="button"
-            className="btn-demo"
-            onClick={handleDemoRegister}
-          >
-            Cargar Demo
           </button>
         </div>
       </div>

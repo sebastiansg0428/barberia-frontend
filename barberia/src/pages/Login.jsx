@@ -10,28 +10,37 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
-
-  try {
-    if (!email || !password) {
-      throw new Error("Por favor completa todos los campos para iniciar sesión");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      if (!email || !password) {
+        throw new Error(
+          "Por favor completa todos los campos para iniciar sesión",
+        );
+      }
+      const response = await fetch("http://localhost:3000/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al iniciar sesión");
+      }
+      const data = await response.json();
+      // Guarda el usuario en localStorage
+      localStorage.setItem(
+        "barberia_current_user",
+        JSON.stringify(data.usuario),
+      );
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    await login(email, password); // Espera la respuesta del backend
-    navigate("/dashboard");
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const handleDemoLogin = () => {
-    setEmail("juanjo@k19.com");
-    setPassword("123456");
   };
 
   return (
@@ -82,13 +91,6 @@ const handleSubmit = async (e) => {
             onClick={() => navigate("/register")}
           >
             Regístrate aquí
-          </button>
-        </div>
-
-        <div className="demo-section">
-          <p>Demo: haz clic para cargar datos de prueba</p>
-          <button type="button" className="btn-demo" onClick={handleDemoLogin}>
-            Cargar Demo
           </button>
         </div>
       </div>
