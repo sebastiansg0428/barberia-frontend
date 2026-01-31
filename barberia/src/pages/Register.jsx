@@ -4,6 +4,8 @@ import "./Register.css";
 
 function Register() {
   const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [rol, setRol] = useState("cliente");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,7 +28,7 @@ function Register() {
       if (password.length < 6) {
         throw new Error("La contraseña debe tener al menos 6 caracteres");
       }
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         throw new Error("Por favor ingresa un email válido");
       }
 
@@ -34,7 +36,7 @@ function Register() {
       const response = await fetch("http://localhost:3000/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, nombre }),
+        body: JSON.stringify({ email, password, nombre, telefono, rol }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -79,6 +81,31 @@ function Register() {
               disabled={loading}
             />
           </div>
+
+          <div className="form-group">
+            <label htmlFor="telefono">Teléfono</label>
+            <input
+              type="text"
+              id="telefono"
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              placeholder="Ingresa tu número de teléfono"
+              disabled={loading}
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="rol">Rol</label>
+            <select
+              id="rol"
+              value={rol}
+              onChange={(e) => setRol(e.target.value)}
+              disabled={loading}
+            >
+              <option value="cliente">Cliente</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
           <div className="form-group">
             <label htmlFor="password">Contraseña</label>
             <input

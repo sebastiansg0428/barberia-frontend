@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser, logout } from "../services/authService";
@@ -10,9 +9,7 @@ const getUsuarios = async () => {
   return await response.json();
 };
 
-
 function Dashboard() {
-
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
@@ -38,7 +35,7 @@ function Dashboard() {
         body: JSON.stringify(editForm),
       });
       setUsuarios((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, ...editForm } : u))
+        prev.map((u) => (u.id === id ? { ...u, ...editForm } : u)),
       );
       setEditUserId(null);
     } catch (err) {
@@ -74,8 +71,14 @@ function Dashboard() {
     setCurrentUser(user);
     if (user.rol === "admin") {
       getUsuarios()
-        .then((data) => setUsuarios(data))
-        .catch((err) => console.error(err))
+        .then((data) => {
+          // Si la respuesta no es un array, usa array vacío
+          setUsuarios(Array.isArray(data) ? data : []);
+        })
+        .catch((err) => {
+          console.error(err);
+          setUsuarios([]);
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
@@ -102,16 +105,27 @@ function Dashboard() {
           <h1>Bienvenido, {currentUser?.nombre}!</h1>
           <p>Panel de administración del sistema de barbería</p>
           <div className="profile-card">
-            <p><strong>Email:</strong> {currentUser?.email}</p>
-            <p><strong>Rol:</strong> {currentUser?.rol}</p>
-            <p><strong>Miembro desde:</strong> {currentUser?.fecha_registro ? new Date(currentUser.fecha_registro).toLocaleDateString() : ''}</p>
+            <p>
+              <strong>Email:</strong> {currentUser?.email}
+            </p>
+            <p>
+              <strong>Rol:</strong> {currentUser?.rol}
+            </p>
+            <p>
+              <strong>Miembro desde:</strong>{" "}
+              {currentUser?.fecha_registro
+                ? new Date(currentUser.fecha_registro).toLocaleDateString()
+                : ""}
+            </p>
           </div>
         </div>
         {/* Tabla de usuarios solo para admin */}
         {currentUser?.rol === "admin" && (
           <div className="users-section">
             <h2>Gestión de Usuarios</h2>
-            <p className="users-count">Total de usuarios: {usuarios.length}</p>
+            <p className="users-count">
+              Total de usuarios: {Array.isArray(usuarios) ? usuarios.length : 0}
+            </p>
             <div className="users-table-container">
               <table className="users-table">
                 <thead>
@@ -125,59 +139,88 @@ function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {usuarios.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.id}</td>
-                      <td>
-                        {editUserId === user.id ? (
-                          <input
-                            type="text"
-                            name="nombre"
-                            value={editForm.nombre}
-                            onChange={handleEditChange}
-                          />
-                        ) : (
-                          user.nombre
-                        )}
-                      </td>
-                      <td>
-                        {editUserId === user.id ? (
-                          <input
-                            type="email"
-                            name="email"
-                            value={editForm.email}
-                            onChange={handleEditChange}
-                          />
-                        ) : (
-                          user.email
-                        )}
-                      </td>
-                      <td>
-                        {editUserId === user.id ? (
-                          <select name="rol" value={editForm.rol} onChange={handleEditChange}>
-                            <option value="admin">admin</option>
-                            <option value="cliente">cliente</option>
-                          </select>
-                        ) : (
-                          user.rol
-                        )}
-                      </td>
-                      <td>{user.fecha_registro ? new Date(user.fecha_registro).toLocaleDateString() : ''}</td>
-                      <td>
-                        {editUserId === user.id ? (
-                          <>
-                            <button onClick={() => handleEditSave(user.id)} className="btn-save">Guardar</button>
-                            <button onClick={handleEditCancel} className="btn-cancel">Cancelar</button>
-                          </>
-                        ) : (
-                          <>
-                            <button onClick={() => handleEditClick(user)} className="btn-edit">Editar</button>
-                            <button onClick={() => handleDeleteUser(user.id)} className="btn-delete">Eliminar</button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {Array.isArray(usuarios) &&
+                    usuarios.map((user) => (
+                      <tr key={user.id}>
+                        <td>{user.id}</td>
+                        <td>
+                          {editUserId === user.id ? (
+                            <input
+                              type="text"
+                              name="nombre"
+                              value={editForm.nombre}
+                              onChange={handleEditChange}
+                            />
+                          ) : (
+                            user.nombre
+                          )}
+                        </td>
+                        <td>
+                          {editUserId === user.id ? (
+                            <input
+                              type="email"
+                              name="email"
+                              value={editForm.email}
+                              onChange={handleEditChange}
+                            />
+                          ) : (
+                            user.email
+                          )}
+                        </td>
+                        <td>
+                          {editUserId === user.id ? (
+                            <select
+                              name="rol"
+                              value={editForm.rol}
+                              onChange={handleEditChange}
+                            >
+                              <option value="admin">admin</option>
+                              <option value="cliente">cliente</option>
+                            </select>
+                          ) : (
+                            user.rol
+                          )}
+                        </td>
+                        <td>
+                          {user.fecha_registro
+                            ? new Date(user.fecha_registro).toLocaleDateString()
+                            : ""}
+                        </td>
+                        <td>
+                          {editUserId === user.id ? (
+                            <>
+                              <button
+                                onClick={() => handleEditSave(user.id)}
+                                className="btn-save"
+                              >
+                                Guardar
+                              </button>
+                              <button
+                                onClick={handleEditCancel}
+                                className="btn-cancel"
+                              >
+                                Cancelar
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleEditClick(user)}
+                                className="btn-edit"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="btn-delete"
+                              >
+                                Eliminar
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
