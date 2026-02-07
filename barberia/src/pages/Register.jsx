@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { getCurrentUser } from "../services/authService";
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -10,6 +11,16 @@ function Register() {
     confirmPassword: "",
     rol: "cliente",
   });
+  const [currentUser, setCurrentUser] = useState(null);
+  useEffect(() => {
+    // Si hay usuario logueado, obtenerlo
+    const user = getCurrentUser && getCurrentUser();
+    setCurrentUser(user);
+    // Si no es admin, forzar rol cliente
+    if (!user || user.rol !== "admin") {
+      setFormData((prev) => ({ ...prev, rol: "cliente" }));
+    }
+  }, []);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -156,8 +167,10 @@ function Register() {
               value={formData.rol}
               onChange={handleChange}
               className="appearance-none relative block w-full px-4 py-3 border border-gray-300 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              required
             >
-              <option value="cliente">Cliente</option>
+              <option value="cliente">Usuario</option>
+              <option value="barbero">Barbero</option>
               <option value="admin">Administrador</option>
             </select>
           </div>
