@@ -8,7 +8,12 @@ function Dashboard() {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editUserId, setEditUserId] = useState(null);
-  const [editForm, setEditForm] = useState({ nombre: "", email: "", rol: "" });
+  const [editForm, setEditForm] = useState({
+    nombre: "",
+    email: "",
+    telefono: "",
+    rol: "",
+  });
 
   const getUsuarios = async () => {
     try {
@@ -25,7 +30,12 @@ function Dashboard() {
 
   const handleEditClick = (user) => {
     setEditUserId(user.id);
-    setEditForm({ nombre: user.nombre, email: user.email, rol: user.rol });
+    setEditForm({
+      nombre: user.nombre,
+      email: user.email,
+      telefono: user.telefono || "",
+      rol: user.rol,
+    });
   };
 
   const handleEditChange = (e) => {
@@ -338,24 +348,27 @@ function Dashboard() {
                 </table>
               </div>
             </div>
-
-            {/* Botón Servicios */}
-            <div className="text-center space-x-4">
-              <button
-                onClick={() => navigate("/servicios")}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-purple-700 hover:to-indigo-700 transform transition hover:scale-105 shadow-lg"
-              >
-                🚀 Ir a Gestión de Servicios
-              </button>
-              <button
-                onClick={() => navigate("/citas")}
-                className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-teal-700 transform transition hover:scale-105 shadow-lg"
-              >
-                📅 Ir a Gestión de Citas
-              </button>
-            </div>
           </>
         )}
+
+        {/* Botones de Navegación - Todos los usuarios */}
+        <div className="text-center space-x-4">
+          <button
+            onClick={() => navigate("/servicios")}
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-purple-700 hover:to-indigo-700 transform transition hover:scale-105 shadow-lg"
+          >
+            💈{" "}
+            {currentUser?.rol === "admin"
+              ? "Gestión de Servicios"
+              : "Ver Servicios"}
+          </button>
+          <button
+            onClick={() => navigate("/citas")}
+            className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-teal-700 transform transition hover:scale-105 shadow-lg"
+          >
+            📅 {currentUser?.rol === "admin" ? "Gestión de Citas" : "Mis Citas"}
+          </button>
+        </div>
       </div>
     </div>
   );

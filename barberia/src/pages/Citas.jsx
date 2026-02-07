@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getCurrentUser, logout } from "../services/authService";
 
 function Citas() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentUser, setCurrentUser] = useState(null);
   const [citas, setCitas] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
@@ -11,6 +12,8 @@ function Citas() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [horasDisponibles, setHorasDisponibles] = useState([]);
+  const [loadingHoras, setLoadingHoras] = useState(false);
   const [formData, setFormData] = useState({
     usuario_id: "",
     servicio_id: "",
@@ -20,12 +23,30 @@ function Citas() {
     notas: "",
   });
 
-  const getCitas = async () => {
+  const getCitas = async (userId = null) => {
     try {
       const response = await fetch("http://localhost:3000/citas");
       if (!response.ok) throw new Error("Error al obtener citas");
       const data = await response.json();
-      setCitas(Array.isArray(data.citas) ? data.citas : []);
+      console.log("Respuesta del backend:", data);
+      console.log("userId filtro:", userId);
+      let citasData = Array.isArray(data.citas) ? data.citas : [];
+      console.log("Citas antes de filtrar:", citasData);
+      console.log(
+        "id_usuario de cada cita:",
+        citasData.map((c) => ({ id: c.id, id_usuario: c.id_usuario })),
+      );
+      // Si es cliente, filtrar solo sus citas
+      if (userId) {
+        citasData = citasData.filter((c) => {
+          console.log(
+            `Comparando cita ${c.id}: id_usuario=${c.id_usuario} (${typeof c.id_usuario}) con userId=${userId} (${typeof userId})`,
+          );
+          return Number(c.id_usuario) === Number(userId);
+        });
+        console.log("Citas después de filtrar:", citasData);
+      }
+      setCitas(citasData);
     } catch (error) {
       console.error(error);
       setCitas([]);
@@ -54,34 +75,147 @@ function Citas() {
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = async (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // Si cambia la fecha, cargar horas disponibles
+    if (name === "fecha" && value) {
+      await checkDisponibilidad(value);
+    }
+  };
+
+  const checkDisponibilidad = async (fecha) => {
+    if (!fecha) return;
+    setLoadingHoras(true);
+    try {
+      // Generar horas de 8am a 8pm cada 30 minutos
+      const todasLasHoras = [];
+      for (let h = 8; h <= 19; h++) {
+        todasLasHoras.push(`${h.toString().padStart(2, "0")}:00`);
+        if (h < 19) todasLasHoras.push(`${h.toString().padStart(2, "0")}:30`);
+      }
+
+      // Consultar citas existentes para esa fecha
+      const response = await fetch(`http://localhost:3000/citas`);
+      const data = await response.json();
+      const citasFecha = Array.isArray(data.citas)
+        ? data.citas.filter((c) => {
+            // Excluir la cita actual si estamos editando
+            if (editId && c.id === editId) return false;
+            // Usar fecha_hora que viene del backend
+            const fechaCita =
+              c.fecha_hora?.split("T")[0] || c.fecha_hora?.substring(0, 10);
+            return fechaCita === fecha && c.estado !== "cancelada";
+          })
+        : [];
+
+      // Extraer horas del campo fecha_hora (formato: HH:MM)
+      const horasOcupadas = citasFecha.map((c) =>
+        c.fecha_hora?.substring(11, 16),
+      );
+      const horasLibres = todasLasHoras.filter(
+        (h) => !horasOcupadas.includes(h),
+      );
+
+      setHorasDisponibles(horasLibres);
+    } catch (error) {
+      console.error("Error al verificar disponibilidad:", error);
+      setHorasDisponibles([]);
+    } finally {
+      setLoadingHoras(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validar que hay hora disponible seleccionada
+    if (!formData.hora) {
+      alert("⚠️ Por favor selecciona una hora disponible");
+      return;
+    }
+
     try {
+      // Construir fecha_hora en formato correcto (YYYY-MM-DD HH:MM:SS)
+      let fechaHora = "";
+      if (formData.fecha && formData.hora) {
+        // Asegurar formato HH:MM:SS
+        const horaCompleta =
+          formData.hora.length === 5 ? `${formData.hora}:00` : formData.hora;
+        fechaHora = `${formData.fecha} ${horaCompleta}`;
+      }
+      // Construir el objeto para el backend
+      const dataToSubmit = {
+        id_usuario: currentUser.id,
+        id_servicio: formData.servicio_id,
+        fecha_hora: fechaHora,
+        estado: "pendiente",
+        notas: formData.notas,
+      };
+
       if (editId) {
         // Actualizar cita
-        await fetch(`http://localhost:3000/citas/${editId}`, {
+        const response = await fetch(`http://localhost:3000/citas/${editId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(dataToSubmit),
         });
+
+        if (!response.ok) {
+          const error = await response.json();
+          if (response.status === 409) {
+            alert(
+              "❌ " +
+                (error.error ||
+                  "Esta hora ya está ocupada. Por favor elige otra hora."),
+            );
+          } else {
+            alert(
+              "❌ Error al actualizar la cita: " +
+                (error.error || "Error desconocido"),
+            );
+          }
+          return;
+        }
+
         setCitas((prev) =>
-          prev.map((c) => (c.id === editId ? { ...c, ...formData } : c)),
+          prev.map((c) => (c.id === editId ? { ...c, ...dataToSubmit } : c)),
         );
         setEditId(null);
+        alert("✅ Cita actualizada exitosamente");
       } else {
         // Crear cita
         const response = await fetch("http://localhost:3000/citas", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(dataToSubmit),
         });
+
+        if (!response.ok) {
+          const error = await response.json();
+          if (response.status === 409) {
+            alert(
+              "❌ " +
+                (error.error ||
+                  "Esta hora ya está ocupada. Por favor elige otra hora."),
+            );
+            // Recargar disponibilidad
+            await checkDisponibilidad(formData.fecha);
+          } else {
+            alert(
+              "❌ Error al crear la cita: " +
+                (error.error || "Error desconocido"),
+            );
+          }
+          return;
+        }
+
         const newCita = await response.json();
-        await getCitas(); // Recargar para obtener datos completos
+        alert("✅ Cita creada exitosamente");
+        await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null); // Recargar para obtener datos completos
       }
+
       setFormData({
         usuario_id: "",
         servicio_id: "",
@@ -90,23 +224,33 @@ function Citas() {
         estado: "pendiente",
         notas: "",
       });
+      setHorasDisponibles([]);
       setShowForm(false);
     } catch (error) {
       console.error(error);
-      alert("Error al guardar la cita");
+      alert(
+        "❌ Error de conexión al guardar la cita. Verifica tu conexión e intenta de nuevo.",
+      );
     }
   };
 
-  const handleEdit = (cita) => {
+  const handleEdit = async (cita) => {
     setEditId(cita.id);
+    // Extraer fecha y hora del campo fecha_hora
+    const fechaFormateada = cita.fecha_hora?.substring(0, 10) || "";
+    const horaFormateada = cita.fecha_hora?.substring(11, 16) || "";
     setFormData({
-      usuario_id: cita.usuario_id,
-      servicio_id: cita.servicio_id,
-      fecha: cita.fecha?.split("T")[0] || "",
-      hora: cita.hora,
+      usuario_id: cita.id_usuario,
+      servicio_id: cita.id_servicio,
+      fecha: fechaFormateada,
+      hora: horaFormateada,
       estado: cita.estado,
       notas: cita.notas || "",
     });
+    // Cargar disponibilidad para la fecha de la cita
+    if (fechaFormateada) {
+      await checkDisponibilidad(fechaFormateada);
+    }
     setShowForm(true);
   };
 
@@ -123,7 +267,24 @@ function Citas() {
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async (id) => {
+    if (!window.confirm("¿Seguro que deseas cancelar esta cita?")) return;
+    try {
+      await fetch(`http://localhost:3000/citas/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "cancelada" }),
+      });
+      setCitas((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, estado: "cancelada" } : c)),
+      );
+    } catch (error) {
+      console.error(error);
+      alert("Error al cancelar la cita");
+    }
+  };
+
+  const handleCancelForm = () => {
     setFormData({
       usuario_id: "",
       servicio_id: "",
@@ -132,6 +293,7 @@ function Citas() {
       estado: "pendiente",
       notas: "",
     });
+    setHorasDisponibles([]);
     setEditId(null);
     setShowForm(false);
   };
@@ -147,15 +309,27 @@ function Citas() {
       navigate("/login");
       return;
     }
-    if (user.rol !== "admin") {
-      navigate("/dashboard");
-      return;
-    }
     setCurrentUser(user);
-    Promise.all([getCitas(), getUsuarios(), getServicios()]).finally(() =>
+    const userId = user.rol === "cliente" ? user.id : null;
+    Promise.all([getCitas(userId), getUsuarios(), getServicios()]).finally(() =>
       setLoading(false),
     );
   }, [navigate]);
+
+  // Detectar si viene del botón "Agendar" de servicios
+  useEffect(() => {
+    if (location.state?.openForm && !loading) {
+      setShowForm(true);
+      if (location.state.servicio_id) {
+        setFormData((prev) => ({
+          ...prev,
+          servicio_id: location.state.servicio_id,
+        }));
+      }
+      // Limpiar el state para que no se abra de nuevo si recarga
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, loading]);
 
   if (loading) {
     return (
@@ -211,7 +385,10 @@ function Citas() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                📅 Gestión de Citas
+                📅{" "}
+                {currentUser?.rol === "admin"
+                  ? "Gestión de Citas"
+                  : "Mis Citas"}
               </h1>
               <p className="text-gray-600 text-lg">
                 Total de citas:{" "}
@@ -237,29 +414,32 @@ function Citas() {
             </h3>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label
-                    htmlFor="usuario_id"
-                    className="block text-sm font-semibold text-gray-700 mb-2"
-                  >
-                    👤 Cliente
-                  </label>
-                  <select
-                    id="usuario_id"
-                    name="usuario_id"
-                    required
-                    value={formData.usuario_id}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-                  >
-                    <option value="">Seleccione un cliente</option>
-                    {usuarios.map((usuario) => (
-                      <option key={usuario.id} value={usuario.id}>
-                        {usuario.nombre} - {usuario.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Solo mostrar selector de cliente si es admin */}
+                {currentUser?.rol === "admin" && (
+                  <div>
+                    <label
+                      htmlFor="usuario_id"
+                      className="block text-sm font-semibold text-gray-700 mb-2"
+                    >
+                      👤 Cliente
+                    </label>
+                    <select
+                      id="usuario_id"
+                      name="usuario_id"
+                      required
+                      value={formData.usuario_id}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    >
+                      <option value="">Seleccione un cliente</option>
+                      {usuarios.map((usuario) => (
+                        <option key={usuario.id} value={usuario.id}>
+                          {usuario.nombre} - {usuario.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label
@@ -298,6 +478,7 @@ function Citas() {
                     name="fecha"
                     type="date"
                     required
+                    min={new Date().toISOString().split("T")[0]}
                     value={formData.fecha}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
@@ -309,40 +490,69 @@ function Citas() {
                     htmlFor="hora"
                     className="block text-sm font-semibold text-gray-700 mb-2"
                   >
-                    ⏰ Hora
+                    ⏰ Hora {loadingHoras && "(Cargando...)"}
                   </label>
-                  <input
-                    id="hora"
-                    name="hora"
-                    type="time"
-                    required
-                    value={formData.hora}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-                  />
+                  {!formData.fecha ? (
+                    <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                      👆 Primero selecciona una fecha
+                    </div>
+                  ) : loadingHoras ? (
+                    <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                      ⌛ Verificando disponibilidad...
+                    </div>
+                  ) : horasDisponibles.length === 0 ? (
+                    <div className="w-full px-4 py-3 border border-red-300 rounded-lg bg-red-50 text-red-600">
+                      ❌ No hay horas disponibles para esta fecha
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        id="hora"
+                        name="hora"
+                        required
+                        value={formData.hora}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                      >
+                        <option value="">Seleccione una hora</option>
+                        {horasDisponibles.map((hora) => (
+                          <option key={hora} value={hora}>
+                            {hora}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-sm text-green-600">
+                        ✅ {horasDisponibles.length} hora(s) disponible(s) para
+                        esta fecha
+                      </p>
+                    </>
+                  )}
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="estado"
-                    className="block text-sm font-semibold text-gray-700 mb-2"
-                  >
-                    📊 Estado
-                  </label>
-                  <select
-                    id="estado"
-                    name="estado"
-                    required
-                    value={formData.estado}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-                  >
-                    <option value="pendiente">Pendiente</option>
-                    <option value="confirmada">Confirmada</option>
-                    <option value="completada">Completada</option>
-                    <option value="cancelada">Cancelada</option>
-                  </select>
-                </div>
+                {/* Solo mostrar estado si es admin */}
+                {currentUser?.rol === "admin" && (
+                  <div>
+                    <label
+                      htmlFor="estado"
+                      className="block text-sm font-semibold text-gray-700 mb-2"
+                    >
+                      📊 Estado
+                    </label>
+                    <select
+                      id="estado"
+                      name="estado"
+                      required
+                      value={formData.estado}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    >
+                      <option value="pendiente">Pendiente</option>
+                      <option value="confirmada">Confirmada</option>
+                      <option value="completada">Completada</option>
+                      <option value="cancelada">Cancelada</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -372,7 +582,7 @@ function Citas() {
                 </button>
                 <button
                   type="button"
-                  onClick={handleCancel}
+                  onClick={handleCancelForm}
                   className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-lg font-bold hover:bg-gray-300 transition"
                 >
                   ✕ Cancelar
@@ -429,24 +639,32 @@ function Citas() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm font-semibold text-gray-900">
-                          {getUsuarioNombre(cita.usuario_id)}
+                          {cita.nombre_usuario ||
+                            getUsuarioNombre(cita.id_usuario)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-600">
-                          {getServicioNombre(cita.servicio_id)}
+                          {cita.nombre_servicio ||
+                            getServicioNombre(cita.id_servicio)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-900">
-                          {cita.fecha
-                            ? new Date(cita.fecha).toLocaleDateString("es-ES")
+                          {cita.fecha_hora
+                            ? cita.fecha_hora.split(" ")[0] ||
+                              cita.fecha_hora.substring(0, 10)
                             : "N/A"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm font-bold text-indigo-600">
-                          ⏰ {cita.hora}
+                          ⏰{" "}
+                          {cita.fecha_hora
+                            ? cita.fecha_hora.includes("T")
+                              ? cita.fecha_hora.substring(11, 16)
+                              : cita.fecha_hora.substring(11, 16)
+                            : ""}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -466,18 +684,32 @@ function Citas() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(cita)}
-                            className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded font-semibold transition"
-                          >
-                            ✏️ Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(cita.id)}
-                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded font-semibold transition"
-                          >
-                            🗑️ Eliminar
-                          </button>
+                          {currentUser?.rol === "admin" ? (
+                            <>
+                              <button
+                                onClick={() => handleEdit(cita)}
+                                className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded font-semibold transition"
+                              >
+                                ✏️ Editar
+                              </button>
+                              <button
+                                onClick={() => handleDelete(cita.id)}
+                                className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded font-semibold transition"
+                              >
+                                🗑️ Eliminar
+                              </button>
+                            </>
+                          ) : (
+                            cita.estado !== "cancelada" &&
+                            cita.estado !== "completada" && (
+                              <button
+                                onClick={() => handleCancel(cita.id)}
+                                className="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1 rounded font-semibold transition"
+                              >
+                                ❌ Cancelar
+                              </button>
+                            )
+                          )}
                         </div>
                       </td>
                     </tr>

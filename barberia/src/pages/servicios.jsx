@@ -106,10 +106,6 @@ function Servicios() {
       navigate("/login");
       return;
     }
-    if (user.rol !== "admin") {
-      navigate("/dashboard");
-      return;
-    }
     setCurrentUser(user);
     getServicios().finally(() => setLoading(false));
   }, [navigate]);
@@ -158,7 +154,10 @@ function Servicios() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                💈 Gestión de Servicios
+                💈{" "}
+                {currentUser?.rol === "admin"
+                  ? "Gestión de Servicios"
+                  : "Servicios Disponibles"}
               </h1>
               <p className="text-gray-600 text-lg">
                 Total de servicios:{" "}
@@ -167,17 +166,19 @@ function Servicios() {
                 </span>
               </p>
             </div>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transform transition hover:scale-105 shadow-lg"
-            >
-              {showForm ? "✕ Cancelar" : "+ Nuevo Servicio"}
-            </button>
+            {currentUser?.rol === "admin" && (
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transform transition hover:scale-105 shadow-lg"
+              >
+                {showForm ? "✕ Cancelar" : "+ Nuevo Servicio"}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Formulario */}
-        {showForm && (
+        {/* Formulario - Solo Admin */}
+        {showForm && currentUser?.rol === "admin" && (
           <div className="bg-white rounded-xl shadow-md p-8 mb-8">
             <h3 className="text-2xl font-bold text-gray-900 mb-6">
               {editId ? "✏️ Editar Servicio" : "➕ Crear Nuevo Servicio"}
@@ -345,20 +346,36 @@ function Servicios() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
+                        {currentUser?.rol === "admin" ? (
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleEdit(servicio)}
+                              className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded font-semibold transition"
+                            >
+                              ✏️ Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(servicio.id)}
+                              className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded font-semibold transition"
+                            >
+                              🗑️ Eliminar
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            onClick={() => handleEdit(servicio)}
-                            className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded font-semibold transition"
+                            onClick={() =>
+                              navigate("/citas", {
+                                state: {
+                                  openForm: true,
+                                  servicio_id: servicio.id,
+                                },
+                              })
+                            }
+                            className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded font-semibold transition"
                           >
-                            ✏️ Editar
+                            📅 Agendar
                           </button>
-                          <button
-                            onClick={() => handleDelete(servicio.id)}
-                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded font-semibold transition"
-                          >
-                            🗑️ Eliminar
-                          </button>
-                        </div>
+                        )}
                       </td>
                     </tr>
                   ))
