@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getCurrentUser, logout } from "../services/authService";
+import { API_URL } from "../config/api";
 
 function Citas() {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ function Citas() {
 
   const getCitas = async (userId = null) => {
     try {
-      const response = await fetch("http://localhost:3000/citas");
+      const response = await fetch(`${API_URL}/citas`);
       if (!response.ok) throw new Error("Error al obtener citas");
       const data = await response.json();
       console.log("Respuesta del backend:", data);
@@ -55,7 +56,7 @@ function Citas() {
 
   const getUsuarios = async () => {
     try {
-      const response = await fetch("http://localhost:3000/usuarios");
+      const response = await fetch(`${API_URL}/usuarios`);
       if (!response.ok) throw new Error("Error al obtener usuarios");
       const data = await response.json();
       setUsuarios(Array.isArray(data.usuarios) ? data.usuarios : []);
@@ -66,7 +67,7 @@ function Citas() {
 
   const getServicios = async () => {
     try {
-      const response = await fetch("http://localhost:3000/servicios");
+      const response = await fetch(`${API_URL}/servicios`);
       if (!response.ok) throw new Error("Error al obtener servicios");
       const data = await response.json();
       setServicios(Array.isArray(data.servicios) ? data.servicios : []);
@@ -97,7 +98,7 @@ function Citas() {
       }
 
       // Consultar citas existentes para esa fecha
-      const response = await fetch(`http://localhost:3000/citas`);
+      const response = await fetch(`${API_URL}/citas`);
       const data = await response.json();
       const citasFecha = Array.isArray(data.citas)
         ? data.citas.filter((c) => {
@@ -156,7 +157,7 @@ function Citas() {
 
       if (editId) {
         // Actualizar cita
-        const response = await fetch(`http://localhost:3000/citas/${editId}`, {
+        const response = await fetch(`${API_URL}/citas/${editId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(dataToSubmit),
@@ -186,7 +187,7 @@ function Citas() {
         alert("✅ Cita actualizada exitosamente");
       } else {
         // Crear cita
-        const response = await fetch("http://localhost:3000/citas", {
+        const response = await fetch(`${API_URL}/citas`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(dataToSubmit),
@@ -257,7 +258,7 @@ function Citas() {
   const handleDelete = async (id) => {
     if (!window.confirm("¿Seguro que deseas eliminar esta cita?")) return;
     try {
-      await fetch(`http://localhost:3000/citas/${id}`, {
+      await fetch(`${API_URL}/citas/${id}`, {
         method: "DELETE",
       });
       setCitas((prev) => prev.filter((c) => c.id !== id));
@@ -270,7 +271,7 @@ function Citas() {
   const handleCancel = async (id) => {
     if (!window.confirm("¿Seguro que deseas cancelar esta cita?")) return;
     try {
-      await fetch(`http://localhost:3000/citas/${id}`, {
+      await fetch(`${API_URL}/citas/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado: "cancelada" }),

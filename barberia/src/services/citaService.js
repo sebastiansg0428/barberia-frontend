@@ -1,5 +1,5 @@
 // Servicio para gestionar citas
-const API_URL = "http://localhost:3000";
+import { API_URL } from '../config/api';
 
 export const getCitas = async () => {
   const response = await fetch(`${API_URL}/citas`);

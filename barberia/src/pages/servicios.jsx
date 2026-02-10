@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser, logout } from "../services/authService";
+import { API_URL } from "../config/api";
 
 function Servicios() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ function Servicios() {
 
   const getServicios = async () => {
     try {
-      const response = await fetch("http://localhost:3000/servicios");
+      const response = await fetch(`${API_URL}/servicios`);
       if (!response.ok) throw new Error("Error al obtener servicios");
       const data = await response.json();
       // El backend devuelve { servicios: [...] }
@@ -38,7 +39,7 @@ function Servicios() {
     try {
       if (editId) {
         // Actualizar servicio
-        await fetch(`http://localhost:3000/servicios/${editId}`, {
+        await fetch(`${API_URL}/servicios/${editId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
@@ -49,7 +50,7 @@ function Servicios() {
         setEditId(null);
       } else {
         // Crear servicio
-        const response = await fetch("http://localhost:3000/servicios", {
+        const response = await fetch(`${API_URL}/servicios`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
@@ -79,7 +80,7 @@ function Servicios() {
   const handleDelete = async (id) => {
     if (!window.confirm("¿Seguro que deseas eliminar este servicio?")) return;
     try {
-      await fetch(`http://localhost:3000/servicios/${id}`, {
+      await fetch(`${API_URL}/servicios/${id}`, {
         method: "DELETE",
       });
       setServicios((prev) => prev.filter((s) => s.id !== id));

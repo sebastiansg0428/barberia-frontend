@@ -1,10 +1,12 @@
 
 // Servicio de autenticación usando backend y localStorage para sesión
+import { API_URL } from '../config/api';
+
 const CURRENT_USER_KEY = 'barberia_current_user';
 
 // Login usando backend
 export const login = async (email, password) => {
-  const response = await fetch("http://localhost:3000/login", {
+  const response = await fetch(`${API_URL}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),

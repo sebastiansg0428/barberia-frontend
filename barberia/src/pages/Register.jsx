@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { getCurrentUser } from "../services/authService";
+import { API_URL } from "../config/api";
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -53,7 +54,7 @@ function Register() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3000/register", {
+      const response = await fetch(`${API_URL}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,5 +1,7 @@
 // Servicio para consumir la API de servicios
-const API_URL = "http://localhost:3000/servicios";
+import { API_URL as BASE_URL } from '../config/api';
+
+const API_URL = `${BASE_URL}/servicios`;
 
 export async function getServicios() {
     const res = await fetch(API_URL);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser, logout } from "../services/authService";
+import { API_URL } from "../config/api";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ function Dashboard() {
 
   const getUsuarios = async () => {
     try {
-      const response = await fetch("http://localhost:3000/usuarios");
+      const response = await fetch(`${API_URL}/usuarios`);
       if (!response.ok) throw new Error("Error al obtener usuarios");
       const data = await response.json();
       // El backend devuelve { usuarios: [...] }
@@ -53,7 +54,7 @@ function Dashboard() {
 
   const handleEditSave = async (id) => {
     try {
-      await fetch(`http://localhost:3000/usuarios/${id}`, {
+      await fetch(`${API_URL}/usuarios/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm),
@@ -74,7 +75,7 @@ function Dashboard() {
   const handleDeleteUser = async (id) => {
     if (!window.confirm("¿Seguro que deseas eliminar este usuario?")) return;
     try {
-      await fetch(`http://localhost:3000/usuarios/${id}`, { method: "DELETE" });
+      await fetch(`${API_URL}/usuarios/${id}`, { method: "DELETE" });
       setUsuarios((prev) => prev.filter((u) => u.id !== id));
     } catch (err) {
       console.error(err);
@@ -96,7 +97,7 @@ function Dashboard() {
     if (user.rol === "admin") {
       Promise.all([
         getUsuarios(),
-        fetch("http://localhost:3000/dashboard/stats", {
+        fetch(`${API_URL}/dashboard/stats`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id_usuario: user.id }),
