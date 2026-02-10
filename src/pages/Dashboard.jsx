@@ -293,10 +293,14 @@ function Dashboard() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {Array.isArray(metrics.citasPorDia) &&
                       metrics.citasPorDia.length > 0 ? (
-                        metrics.citasPorDia.map((item) => (
-                          <tr key={item.fecha}>
+                        metrics.citasPorDia.map((item, index) => (
+                          <tr key={item.dia || item.fecha || index}>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {item.fecha}
+                              {item.dia || item.fecha
+                                ? new Date(
+                                    item.dia || item.fecha,
+                                  ).toLocaleDateString("es-ES")
+                                : "N/A"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap font-bold text-purple-600">
                               {item.total}
