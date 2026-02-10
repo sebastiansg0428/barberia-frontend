@@ -4,6 +4,7 @@ import { getCurrentUser, logout } from "../services/authService";
 import { API_URL } from "../config/api";
 
 function Dashboard() {
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
@@ -151,31 +152,62 @@ function Dashboard() {
       <nav className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
+            {/* Logo */}
             <h2 className="text-2xl font-bold">✂️ Barbería K-19</h2>
-            <div className="flex flex-col sm:flex-row items-center w-full space-y-2 sm:space-y-0 sm:space-x-4">
-              <div className="flex flex-col sm:flex-row items-center w-full space-y-2 sm:space-y-0 sm:space-x-4">
-                <button
-                  onClick={() => navigate("/servicios")}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition"
-                >
-                  💈 Gestión de Servicios
-                </button>
-                <button
-                  onClick={() => navigate("/citas")}
-                  className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-green-700 hover:to-teal-700 transition"
-                >
-                  📅 Gestión de Citas
-                </button>
-                {/* ...usuario y cerrar sesión... */}
-              </div>
-
-              <span className="text-sm">👤 {currentUser?.nombre}</span>
-              <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold">
+            {/* Botón hamburguesa en móvil */}
+            <button
+              className="sm:hidden flex items-center px-3 py-2 border rounded text-white border-white ml-2"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Abrir menú"
+            >
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            {/* Menú */}
+            <div
+              className={`flex-col sm:flex-row sm:flex items-center space-y-2 sm:space-y-0 sm:space-x-4 absolute sm:static top-16 left-0 w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 sm:bg-none p-4 sm:p-0 transition-all duration-200 z-40 ${menuOpen ? "flex" : "hidden sm:flex"}`}
+            >
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate("/servicios");
+                }}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition w-full sm:w-auto"
+              >
+                💈 Gestión de Servicios
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate("/citas");
+                }}
+                className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-green-700 hover:to-teal-700 transition w-full sm:w-auto"
+              >
+                📅 Gestión de Citas
+              </button>
+              <span className="text-sm w-full sm:w-auto text-center">
+                👤 {currentUser?.nombre}
+              </span>
+              <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold w-full sm:w-auto text-center">
                 {currentUser?.rol}
               </span>
               <button
-                onClick={handleLogout}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition"
+                onClick={() => {
+                  setMenuOpen(false);
+                  handleLogout();
+                }}
+                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition w-full sm:w-auto"
               >
                 🚪 Cerrar Sesión
               </button>
