@@ -15,6 +15,7 @@ function Citas() {
   const [editId, setEditId] = useState(null);
   const [horasDisponibles, setHorasDisponibles] = useState([]);
   const [loadingHoras, setLoadingHoras] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     usuario_id: "",
     servicio_id: "",
@@ -354,53 +355,103 @@ function Citas() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <nav className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg sticky top-0 z-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Navbar Responsive */}
+      <nav className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <h2 className="text-2xl font-bold">✂️ Barbería K-19</h2>
-            <div className="flex items-center space-x-4">
+            <h2 className="text-xl sm:text-2xl font-bold">✂️ Barbería K-19</h2>
+
+            {/* Botón hamburguesa móvil */}
+            <button
+              className="sm:hidden flex items-center px-3 py-2 border rounded text-white border-white"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Abrir menú"
+            >
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+
+            {/* Menú desktop */}
+            <div className="hidden sm:flex items-center space-x-3">
               <button
                 onClick={() => navigate("/dashboard")}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition"
+                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:scale-105"
               >
                 ← Dashboard
               </button>
-              <span className="text-sm">👤 {currentUser?.nombre}</span>
+              <span className="text-sm px-3 py-1 bg-white/10 rounded-full">
+                👤 {currentUser?.nombre}
+              </span>
               <button
                 onClick={handleLogout}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition"
+                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:scale-105"
+              >
+                🚪 Salir
+              </button>
+            </div>
+          </div>
+
+          {/* Menú móvil */}
+          {menuOpen && (
+            <div className="sm:hidden pb-4 space-y-2">
+              <button
+                onClick={() => {
+                  navigate("/dashboard");
+                  setMenuOpen(false);
+                }}
+                className="w-full bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition text-left"
+              >
+                ← Dashboard
+              </button>
+              <div className="px-4 py-2 text-sm bg-white/10 rounded-lg">
+                👤 {currentUser?.nombre}
+              </div>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setMenuOpen(false);
+                }}
+                className="w-full bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition text-left"
               >
                 🚪 Cerrar Sesión
               </button>
             </div>
-          </div>
+          )}
         </div>
       </nav>
 
       {/* Contenido */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-md p-8 mb-8">
-          <div className="flex justify-between items-center">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mb-6 sm:mb-8 border border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent mb-2">
                 📅{" "}
                 {currentUser?.rol === "admin"
                   ? "Gestión de Citas"
                   : "Mis Citas"}
               </h1>
-              <p className="text-gray-600 text-lg">
+              <p className="text-gray-600 text-base sm:text-lg">
                 Total de citas:{" "}
-                <span className="font-bold text-purple-600">
-                  {citas.length}
-                </span>
+                <span className="font-bold text-teal-600">{citas.length}</span>
               </p>
             </div>
             <button
               onClick={() => setShowForm(!showForm)}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transform transition hover:scale-105 shadow-lg"
+              className="bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:from-cyan-600 hover:via-teal-600 hover:to-emerald-700 transform transition hover:scale-105 shadow-lg w-full sm:w-auto"
             >
               {showForm ? "✕ Cancelar" : "+ Nueva Cita"}
             </button>
@@ -409,8 +460,8 @@ function Citas() {
 
         {/* Formulario */}
         {showForm && (
-          <div className="bg-white rounded-xl shadow-md p-8 mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mb-6 sm:mb-8 border border-gray-100">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
               {editId ? "✏️ Editar Cita" : "➕ Crear Nueva Cita"}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -574,17 +625,17 @@ function Citas() {
                 />
               </div>
 
-              <div className="flex space-x-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:space-x-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-lg font-bold hover:from-green-600 hover:to-green-700 transition transform hover:scale-105"
+                  className="flex-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 text-white py-3 px-6 rounded-lg font-bold hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 transition transform hover:scale-105 shadow-md"
                 >
-                  {editId ? "💾 Actualizar Cita" : "➕ Crear Cita"}
+                  {editId ? "💾 Actualizar" : "➕ Crear Cita"}
                 </button>
                 <button
                   type="button"
                   onClick={handleCancelForm}
-                  className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-lg font-bold hover:bg-gray-300 transition"
+                  className="flex-1 bg-gradient-to-r from-gray-400 to-gray-500 text-white py-3 px-6 rounded-lg font-bold hover:from-gray-500 hover:to-gray-600 transition shadow-md"
                 >
                   ✕ Cancelar
                 </button>
@@ -594,30 +645,30 @@ function Citas() {
         )}
 
         {/* Tabla de Citas */}
-        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm sm:text-base">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Cliente
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Servicio
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fecha
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Hora
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
@@ -635,31 +686,40 @@ function Citas() {
                 ) : (
                   citas.map((cita) => (
                     <tr key={cita.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
                         #{cita.id}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
                         <span className="text-sm font-semibold text-gray-900">
                           {cita.nombre_usuario ||
                             getUsuarioNombre(cita.id_usuario)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-600">
+                      <td className="px-4 sm:px-6 py-4">
+                        <span className="text-sm text-gray-600 font-semibold">
                           {cita.nombre_servicio ||
                             getServicioNombre(cita.id_servicio)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900">
-                          {cita.fecha_hora
-                            ? cita.fecha_hora.split(" ")[0] ||
-                              cita.fecha_hora.substring(0, 10)
-                            : "N/A"}
-                        </span>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="text-sm text-gray-900 font-semibold">
+                            {cita.fecha_hora
+                              ? cita.fecha_hora.split(" ")[0] ||
+                                cita.fecha_hora.substring(0, 10)
+                              : "N/A"}
+                          </span>
+                          <span className="sm:hidden text-xs font-bold text-teal-600">
+                            {cita.fecha_hora
+                              ? cita.fecha_hora.includes("T")
+                                ? cita.fecha_hora.substring(11, 16)
+                                : cita.fecha_hora.substring(11, 16)
+                              : ""}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-bold text-indigo-600">
+                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-bold text-teal-600">
                           ⏰{" "}
                           {cita.fecha_hora
                             ? cita.fecha_hora.includes("T")
@@ -668,7 +728,7 @@ function Citas() {
                             : ""}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             cita.estado === "confirmada"
@@ -683,19 +743,19 @@ function Citas() {
                           {cita.estado}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           {currentUser?.rol === "admin" ? (
                             <>
                               <button
                                 onClick={() => handleEdit(cita)}
-                                className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded font-semibold transition"
+                                className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
                               >
                                 ✏️ Editar
                               </button>
                               <button
                                 onClick={() => handleDelete(cita.id)}
-                                className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded font-semibold transition"
+                                className="bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-600 hover:to-pink-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
                               >
                                 🗑️ Eliminar
                               </button>
@@ -705,7 +765,7 @@ function Citas() {
                             cita.estado !== "completada" && (
                               <button
                                 onClick={() => handleCancel(cita.id)}
-                                className="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1 rounded font-semibold transition"
+                                className="bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm w-full"
                               >
                                 ❌ Cancelar
                               </button>
