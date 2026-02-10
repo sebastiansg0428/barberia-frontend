@@ -15,6 +15,15 @@ function Dashboard() {
     rol: "",
   });
 
+  const [metrics, setMetrics] = useState({
+    totalUsuarios: 0,
+    totalCitas: 0,
+    totalServicios: 0,
+    citasPorEstado: [],
+    citasPorDia: [],
+    citasPorMes: [],
+  });
+
   const getUsuarios = async () => {
     try {
       const response = await fetch("http://localhost:3000/usuarios");
@@ -85,7 +94,40 @@ function Dashboard() {
     }
     setCurrentUser(user);
     if (user.rol === "admin") {
-      getUsuarios().finally(() => setLoading(false));
+      Promise.all([
+        getUsuarios(),
+        fetch("http://localhost:3000/dashboard/stats", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_usuario: user.id }),
+        }).then((r) => r.json()),
+      ])
+        .then(([_, stats]) => {
+          setMetrics({
+            totalUsuarios: stats.totalUsuarios || 0,
+            totalCitas: stats.totalCitas || 0,
+            totalServicios: stats.totalServicios || 0,
+            citasPorEstado: stats.citasPorEstado || [],
+            citasPorDia: Array.isArray(stats.citasPorDia)
+              ? stats.citasPorDia
+              : [],
+            citasPorMes: Array.isArray(stats.citasPorMes)
+              ? stats.citasPorMes
+              : [],
+          });
+        })
+        .catch((error) => {
+          console.error("Error al obtener métricas:", error);
+          setMetrics({
+            totalUsuarios: 0,
+            totalCitas: 0,
+            totalServicios: 0,
+            citasPorEstado: [],
+            citasPorDia: [],
+            citasPorMes: [],
+          });
+        })
+        .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
@@ -173,6 +215,151 @@ function Dashboard() {
         {/* Sección de Admin */}
         {currentUser?.rol === "admin" && (
           <>
+            {/* Métricas Dashboard */}
+            <div className="bg-white rounded-xl shadow-md p-8 mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                📊 Métricas del Sistema
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-purple-50 p-6 rounded-xl shadow text-center">
+                  <p className="text-lg font-semibold text-purple-700">
+                    Usuarios
+                  </p>
+                  <p className="text-3xl font-bold">{metrics.totalUsuarios}</p>
+                </div>
+                <div className="bg-green-50 p-6 rounded-xl shadow text-center">
+                  <p className="text-lg font-semibold text-green-700">Citas</p>
+                  <p className="text-3xl font-bold">{metrics.totalCitas}</p>
+                </div>
+                <div className="bg-indigo-50 p-6 rounded-xl shadow text-center">
+                  <p className="text-lg font-semibold text-indigo-700">
+                    Servicios
+                  </p>
+                  <p className="text-3xl font-bold">{metrics.totalServicios}</p>
+                </div>
+              </div>
+              {/* Citas por estado */}
+              <div className="mb-8">
+                <h3 className="text-xl font-bold mb-2">Citas por Estado</h3>
+                <div className="flex flex-wrap gap-4">
+                  {Array.isArray(metrics.citasPorEstado) ? (
+                    metrics.citasPorEstado.map((item) => (
+                      <div
+                        key={item.estado}
+                        className="bg-gray-100 px-4 py-2 rounded-lg font-semibold"
+                      >
+                        {item.estado}:{" "}
+                        <span className="text-purple-600 font-bold">
+                          {item.total}
+                        </span>
+                      </div>
+                    ))
+                  ) : metrics.citasPorEstado &&
+                    typeof metrics.citasPorEstado === "object" ? (
+                    Object.entries(metrics.citasPorEstado).map(
+                      ([estado, total]) => (
+                        <div
+                          key={estado}
+                          className="bg-gray-100 px-4 py-2 rounded-lg font-semibold"
+                        >
+                          {estado}:{" "}
+                          <span className="text-purple-600 font-bold">
+                            {total}
+                          </span>
+                        </div>
+                      ),
+                    )
+                  ) : (
+                    <p className="text-gray-500">No hay datos disponibles</p>
+                  )}
+                </div>
+              </div>
+              {/* Citas por día */}
+              <div className="mb-8">
+                <h3 className="text-xl font-bold mb-2">Citas por Día</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Fecha
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {Array.isArray(metrics.citasPorDia) &&
+                      metrics.citasPorDia.length > 0 ? (
+                        metrics.citasPorDia.map((item) => (
+                          <tr key={item.fecha}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {item.fecha}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap font-bold text-purple-600">
+                              {item.total}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="2"
+                            className="px-6 py-4 text-center text-gray-500"
+                          >
+                            No hay datos disponibles
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* Citas por mes */}
+              <div>
+                <h3 className="text-xl font-bold mb-2">Citas por Mes</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Mes
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {Array.isArray(metrics.citasPorMes) &&
+                      metrics.citasPorMes.length > 0 ? (
+                        metrics.citasPorMes.map((item) => (
+                          <tr key={item.mes}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {item.mes}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap font-bold text-purple-600">
+                              {item.total}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="2"
+                            className="px-6 py-4 text-center text-gray-500"
+                          >
+                            No hay datos disponibles
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
             {/* Gestión de Usuarios */}
             <div className="bg-white rounded-xl shadow-md p-8 mb-8">
               <div className="flex justify-between items-center mb-6">
