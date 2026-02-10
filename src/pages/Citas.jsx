@@ -142,22 +142,29 @@ function Citas() {
       // Construir fecha_hora en formato correcto (YYYY-MM-DD HH:MM:SS)
       let fechaHora = "";
       if (formData.fecha && formData.hora) {
+        // Asegurar que la fecha tenga el formato correcto YYYY-MM-DD
+        const fechaObj = new Date(formData.fecha + "T00:00:00");
+        const year = fechaObj.getFullYear();
+        const month = String(fechaObj.getMonth() + 1).padStart(2, "0");
+        const day = String(fechaObj.getDate()).padStart(2, "0");
+        const fechaFormateada = `${year}-${month}-${day}`;
+
         // Asegurar formato HH:MM:SS
         const horaCompleta =
           formData.hora.length === 5 ? `${formData.hora}:00` : formData.hora;
-        fechaHora = `${formData.fecha} ${horaCompleta}`;
+        fechaHora = `${fechaFormateada} ${horaCompleta}`;
       }
       // Construir el objeto para el backend
       const dataToSubmit = {
-        id_usuario: currentUser.id,
+        id_usuario: formData.usuario_id || currentUser.id,
         id_servicio: formData.servicio_id,
         fecha_hora: fechaHora,
-        estado: "pendiente",
+        estado: formData.estado || "pendiente",
         notas: formData.notas,
       };
 
       if (editId) {
-        // Actualizar cita
+        // Actualizar cita - usar PUT para actualización completa
         const response = await fetch(`${API_URL}/citas/${editId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -272,8 +279,8 @@ function Citas() {
   const handleCancel = async (id) => {
     if (!window.confirm("¿Seguro que deseas cancelar esta cita?")) return;
     try {
-      await fetch(`${API_URL}/citas/${id}`, {
-        method: "PUT",
+      await fetch(`${API_URL}/citas/${id}/estado`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado: "cancelada" }),
       });
@@ -599,7 +606,6 @@ function Citas() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                     >
                       <option value="pendiente">Pendiente</option>
-                      <option value="confirmada">Confirmada</option>
                       <option value="completada">Completada</option>
                       <option value="cancelada">Cancelada</option>
                     </select>
@@ -731,13 +737,11 @@ function Citas() {
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            cita.estado === "confirmada"
-                              ? "bg-green-100 text-green-800"
-                              : cita.estado === "completada"
-                                ? "bg-blue-100 text-blue-800"
-                                : cita.estado === "cancelada"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-yellow-100 text-yellow-800"
+                            cita.estado === "completada"
+                              ? "bg-blue-100 text-blue-800"
+                              : cita.estado === "cancelada"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-yellow-100 text-yellow-800"
                           }`}
                         >
                           {cita.estado}
