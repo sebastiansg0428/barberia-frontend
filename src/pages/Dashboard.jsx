@@ -152,8 +152,8 @@ function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h2 className="text-2xl font-bold">✂️ Barbería K-19</h2>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-center w-full space-y-2 sm:space-y-0 sm:space-x-4">
+              <div className="flex flex-col sm:flex-row items-center w-full space-y-2 sm:space-y-0 sm:space-x-4">
                 <button
                   onClick={() => navigate("/servicios")}
                   className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition"
@@ -187,7 +187,7 @@ function Dashboard() {
       {/* Contenido */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Bienvenida */}
-        <div className="bg-white rounded-xl shadow-md p-8 mb-8">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-8 mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             ¡Bienvenido, {currentUser?.nombre}! 👋
           </h1>
@@ -233,7 +233,7 @@ function Dashboard() {
         {currentUser?.rol === "admin" && (
           <>
             {/* Métricas Dashboard */}
-            <div className="bg-white rounded-xl shadow-md p-8 mb-8">
+            <div className="bg-white rounded-xl shadow-md p-4 sm:p-8 mb-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
                 📊 Métricas del Sistema
               </h2>
@@ -295,7 +295,7 @@ function Dashboard() {
               <div className="mb-8">
                 <h3 className="text-xl font-bold mb-2">Citas por Día</h3>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full text-xs sm:text-sm divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -382,7 +382,7 @@ function Dashboard() {
             </div>
 
             {/* Gestión de Usuarios */}
-            <div className="bg-white rounded-xl shadow-md p-8 mb-8">
+            <div className="bg-white rounded-xl shadow-md p-4 sm:p-8 mb-8">
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">
@@ -398,7 +398,7 @@ function Dashboard() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full text-xs sm:text-sm divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -558,8 +558,6 @@ function Dashboard() {
             </div>
           </>
         )}
-
-       
       </div>
     </div>
   );
