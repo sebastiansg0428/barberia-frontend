@@ -149,8 +149,8 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <nav className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav className="bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white px-4 py-2 rounded-lg font-bold shadow-md hover:from-fuchsia-700 hover:to-purple-700 transition w-full sm:w-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <h2 className="text-2xl font-bold">✂️ Barbería K-19</h2>
