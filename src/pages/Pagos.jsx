@@ -7,6 +7,7 @@ function Pagos() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   const [pagos, setPagos] = useState([]);
+  const [pagoStats, setPagoStats] = useState(null); // Estadísticas de pagos
   const [citas, setCitas] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +153,24 @@ function Pagos() {
     navigate("/login");
   };
 
+  // Obtener estadísticas de pagos (solo admin)
+  const getPagoStats = async (userId) => {
+    try {
+      const response = await fetch(`${API_URL}/dashboard/pagos-stats`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_usuario: userId }),
+      });
+      if (!response.ok)
+        throw new Error("Error al obtener estadísticas de pagos");
+      const data = await response.json();
+      setPagoStats(data);
+    } catch (error) {
+      console.error(error);
+      setPagoStats(null);
+    }
+  };
+
   useEffect(() => {
     const user = getCurrentUser();
     if (!user) {
@@ -161,9 +180,12 @@ function Pagos() {
     setCurrentUser(user);
 
     if (user.rol === "admin") {
-      Promise.all([getPagos(), getCitas(), getUsuarios()]).finally(() =>
-        setLoading(false),
-      );
+      Promise.all([
+        getPagos(),
+        getCitas(),
+        getUsuarios(),
+        getPagoStats(user.id),
+      ]).finally(() => setLoading(false));
     } else {
       // Cliente solo ve sus pagos
       Promise.all([
@@ -271,6 +293,114 @@ function Pagos() {
 
       {/* Contenido */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Estadísticas de Pagos - Solo Admin */}
+        {currentUser?.rol === "admin" && pagoStats && (
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mb-6 sm:mb-8 border border-violet-200">
+            <h2 className="text-2xl font-bold text-violet-700 mb-4 flex items-center gap-2">
+              📊 Estadísticas de Pagos
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="bg-violet-50 p-6 rounded-xl shadow text-center">
+                <p className="text-lg font-semibold text-violet-700">
+                  Total Pagos
+                </p>
+                <p className="text-3xl font-bold">
+                  {pagoStats.totalPagos ?? 0}
+                </p>
+              </div>
+              <div className="bg-green-50 p-6 rounded-xl shadow text-center">
+                <p className="text-lg font-semibold text-green-700">
+                  Monto Total
+                </p>
+                <p className="text-3xl font-bold">
+                  ${Number(pagoStats.totalMontoPagado).toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-blue-50 p-6 rounded-xl shadow text-center">
+                <p className="text-lg font-semibold text-blue-700">
+                  Métodos Distintos
+                </p>
+                <p className="text-3xl font-bold">
+                  {Array.isArray(pagoStats.pagosPorMetodo)
+                    ? pagoStats.pagosPorMetodo.length
+                    : 0}
+                </p>
+              </div>
+            </div>
+            {/* Pagos por método */}
+            <div className="mb-4">
+              <h3 className="text-xl font-bold mb-2">Pagos por Método</h3>
+              <div className="flex flex-wrap gap-4">
+                {Array.isArray(pagoStats.pagosPorMetodo) &&
+                pagoStats.pagosPorMetodo.length > 0 ? (
+                  pagoStats.pagosPorMetodo.map((item) => (
+                    <div
+                      key={item.metodo}
+                      className="bg-gray-100 px-4 py-2 rounded-lg font-semibold capitalize"
+                    >
+                      {item.metodo}:{" "}
+                      <span className="text-violet-600 font-bold">
+                        {item.total}
+                      </span>{" "}
+                      ({" "}
+                      <span className="text-green-600">
+                        $
+                        {!isNaN(Number(item.montoTotal?.trim()))
+                          ? Number(item.montoTotal?.trim()).toLocaleString()
+                          : 0}
+                      </span>
+                      )
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500">No hay datos disponibles</p>
+                )}
+              </div>
+            </div>
+            {/* Pagos por mes */}
+            <div>
+              <h3 className="text-xl font-bold mb-2">Pagos por Mes</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Mes
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {Array.isArray(pagoStats.pagosPorMes) &&
+                    pagoStats.pagosPorMes.length > 0 ? (
+                      pagoStats.pagosPorMes.map((item) => (
+                        <tr key={item.mes}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {item.mes}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap font-bold text-violet-600">
+                            {item.total}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan="2"
+                          className="px-6 py-4 text-center text-gray-500"
+                        >
+                          No hay datos disponibles
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mb-6 sm:mb-8 border border-gray-100">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -448,7 +578,10 @@ function Pagos() {
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                         <span className="text-sm font-bold text-green-600">
-                          ${Number(pago.monto).toLocaleString()}
+                          $
+                          {!isNaN(Number(pago.monto))
+                            ? Number(pago.monto).toLocaleString()
+                            : 0}
                         </span>
                       </td>
                       <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">

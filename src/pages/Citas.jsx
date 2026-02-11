@@ -25,6 +25,9 @@ function Citas() {
     notas: "",
   });
 
+  const [pagoAhora, setPagoAhora] = useState(false);
+  const [metodoPago, setMetodoPago] = useState("efectivo");
+
   const getCitas = async (userId = null) => {
     try {
       const response = await fetch(`${API_URL}/citas`);
@@ -223,6 +226,39 @@ function Citas() {
         const newCita = await response.json();
         alert("✅ Cita creada exitosamente");
         await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null); // Recargar para obtener datos completos
+      }
+
+      // Si el cliente eligió pagar ahora, registrar pago
+      if (pagoAhora && newCita && newCita.id) {
+        // Obtener precio del servicio
+        const servicio = servicios.find(
+          (s) => s.id === parseInt(formData.servicio_id),
+        );
+        const monto = servicio ? parseFloat(servicio.precio) : 0;
+        const pagoData = {
+          id_cita: newCita.id,
+          monto,
+          metodo: metodoPago,
+          fecha_pago: new Date().toISOString().split("T")[0],
+        };
+        try {
+          const pagoResp = await fetch(`${API_URL}/pagos`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(pagoData),
+          });
+          if (pagoResp.ok) {
+            alert("✅ Pago registrado exitosamente");
+          } else {
+            const error = await pagoResp.json();
+            alert(
+              "❌ Error al registrar pago: " +
+                (error.error || error.message || "Error desconocido"),
+            );
+          }
+        } catch (error) {
+          alert("❌ Error de conexión al registrar el pago");
+        }
       }
 
       setFormData({
@@ -610,6 +646,36 @@ function Citas() {
                       <option value="cancelada">Cancelada</option>
                     </select>
                   </div>
+                )}
+              </div>
+
+              {/* Opción de pago inmediato */}
+              <div className="flex items-center gap-4 mt-4">
+                <input
+                  id="pagoAhora"
+                  type="checkbox"
+                  checked={pagoAhora}
+                  onChange={(e) => setPagoAhora(e.target.checked)}
+                  className="h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                />
+                <label
+                  htmlFor="pagoAhora"
+                  className="text-sm font-semibold text-gray-700"
+                >
+                  ¿Desea pagar ahora?
+                </label>
+                {pagoAhora && (
+                  <select
+                    id="metodoPago"
+                    name="metodoPago"
+                    value={metodoPago}
+                    onChange={(e) => setMetodoPago(e.target.value)}
+                    className="ml-4 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="transferencia">Transferencia</option>
+                  </select>
                 )}
               </div>
 
