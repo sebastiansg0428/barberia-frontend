@@ -196,6 +196,15 @@ function Dashboard() {
               >
                 📅 Gestión de Citas
               </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate("/pagos");
+                }}
+                className="bg-gradient-to-r from-violet-600 to-pink-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-violet-700 hover:to-pink-700 transition w-full sm:w-auto"
+              >
+                💸 Gestión de Pagos
+              </button>
               <span className="text-sm w-full sm:w-auto text-center">
                 👤 {currentUser?.nombre}
               </span>

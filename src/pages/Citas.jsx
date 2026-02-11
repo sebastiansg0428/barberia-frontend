@@ -757,6 +757,14 @@ function Citas() {
                               >
                                 ✏️ Editar
                               </button>
+                              {cita.estado === "completada" && (
+                                <button
+                                  onClick={() => navigate("/pagos")}
+                                  className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                >
+                                  💰 Pago
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleDelete(cita.id)}
                                 className="bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-600 hover:to-pink-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
