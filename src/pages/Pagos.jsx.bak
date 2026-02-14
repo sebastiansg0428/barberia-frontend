@@ -201,6 +201,17 @@ function Pagos() {
     }
   }, [navigate]);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-lg">Cargando pagos...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Agrupa los pagos por mes y año
   function agruparPagosPorMes(pagos) {
     return pagos.reduce((acc, pago) => {
@@ -214,27 +225,8 @@ function Pagos() {
     }, {});
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-lg">Cargando pagos...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Filtrar pagos solo de citas completadas
-  const citasCompletadasIds = new Set(
-    citas.filter((c) => c.estado === "completada").map((c) => c.id),
-  );
-  const pagosCitasCompletadas = pagos.filter((p) =>
-    citasCompletadasIds.has(p.id_cita),
-  );
-
-  const pagosPorMes = agruparPagosPorMes(pagosCitasCompletadas);
-  console.log("Pagos agrupados por mes (solo citas completadas):", pagosPorMes);
+  const pagosPorMes = agruparPagosPorMes(pagos);
+  console.log("Pagos agrupados por mes:", pagosPorMes);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -261,84 +253,40 @@ function Pagos() {
                   strokeLinejoin="round"
                   d="M4 6h16M4 12h16M4 18h16"
                 />
-              </svg>
-            </button>
-
-            <div className="hidden sm:flex items-center space-x-3">
-              <button
-                onClick={() => navigate("/dashboard")}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:scale-105"
-              >
-                ← Dashboard
-              </button>
-              <span className="text-sm px-3 py-1 bg-white/10 rounded-full">
-                👤 {currentUser?.nombre}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:scale-105"
-              >
-                🚪 Salir
-              </button>
-            </div>
-          </div>
-
-          {menuOpen && (
-            <div className="sm:hidden pb-4 space-y-2">
-              <button
-                onClick={() => {
-                  navigate("/dashboard");
-                  setMenuOpen(false);
-                }}
-                className="w-full bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition text-left"
-              >
-                ← Dashboard
-              </button>
-              <div className="px-4 py-2 text-sm bg-white/10 rounded-lg">
-                👤 {currentUser?.nombre}
+              {/* Pagos por mes */}
+              <div>
+                <h3 className="text-xl font-bold mb-2">Pagos por Mes</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Mes
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {Object.entries(pagosPorMes).length === 0 ? (
+                        <tr>
+                          <td colSpan="2" className="px-6 py-8 text-center text-gray-500">
+                            No hay pagos registrados.
+                          </td>
+                        </tr>
+                      ) : (
+                        Object.entries(pagosPorMes).map(([mes, pagosMes]) => (
+                          <tr key={mes} className="hover:bg-gray-50">
+                            <td className="px-6 py-4">{mes}</td>
+                            <td className="px-6 py-4">{pagosMes.length}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <button
-                onClick={() => {
-                  handleLogout();
-                  setMenuOpen(false);
-                }}
-                className="w-full bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition text-left"
-              >
-                🚪 Cerrar Sesión
-              </button>
-            </div>
-          )}
-        </div>
-      </nav>
-
-      {/* Contenido */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* Estadísticas de Pagos - Solo Admin */}
-        {currentUser?.rol === "admin" && pagoStats && (
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mb-6 sm:mb-8 border border-violet-200">
-            <h2 className="text-2xl font-bold text-violet-700 mb-4 flex items-center gap-2">
-              📊 Estadísticas de Pagos
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-violet-50 p-6 rounded-xl shadow text-center">
-                <p className="text-lg font-semibold text-violet-700">
-                  Total Pagos
-                </p>
-                <p className="text-3xl font-bold">
-                  {pagoStats.totalPagos ?? 0}
-                </p>
-              </div>
-              <div className="bg-green-50 p-6 rounded-xl shadow text-center">
-                <p className="text-lg font-semibold text-green-700">
-                  Monto Total
-                </p>
-                <p className="text-3xl font-bold">
-                  ${Number(pagoStats.totalMontoPagado).toLocaleString()}
-                </p>
-              </div>
-              <div className="bg-blue-50 p-6 rounded-xl shadow text-center">
-                <p className="text-lg font-semibold text-blue-700">
-                  Métodos Distintos
                 </p>
                 <p className="text-3xl font-bold">
                   {Array.isArray(pagoStats.pagosPorMetodo)
@@ -353,9 +301,9 @@ function Pagos() {
               <div className="flex flex-wrap gap-4">
                 {Array.isArray(pagoStats.pagosPorMetodo) &&
                 pagoStats.pagosPorMetodo.length > 0 ? (
-                  pagoStats.pagosPorMetodo.map((item, index) => (
+                  pagoStats.pagosPorMetodo.map((item) => (
                     <div
-                      key={`metodo-${item.metodo}-${index}`}
+                      key={item.metodo}
                       className="bg-gray-100 px-4 py-2 rounded-lg font-semibold capitalize"
                     >
                       {item.metodo}:{" "}
@@ -388,102 +336,68 @@ function Pagos() {
                         Mes
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Pagos
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Monto Total
+                        Total
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {Object.entries(pagosPorMes).length === 0 ? (
+                    {pagos.length === 0 ? (
                       <tr>
                         <td
-                          colSpan="3"
+                          colSpan="6"
                           className="px-6 py-8 text-center text-gray-500"
                         >
                           No hay pagos registrados.
                         </td>
                       </tr>
                     ) : (
-                      Object.entries(pagosPorMes).map(
-                        ([mes, pagosMes], index) => {
-                          const montoTotal = pagosMes.reduce(
-                            (sum, pago) => sum + Number(pago.monto || 0),
-                            0,
-                          );
-                          return (
-                            <tr
-                              key={`mes-${mes}-${index}`}
-                              className="hover:bg-gray-50"
-                            >
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                {mes}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {pagosMes.length}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
-                                ${montoTotal.toLocaleString()}
-                              </td>
-                            </tr>
-                          );
-                        },
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            {/* Pagos por día */}
-            <div className="mt-4">
-              <h3 className="text-xl font-bold mb-2">Pagos por Día</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Fecha
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Pagos
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Monto Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {Array.isArray(pagoStats.pagosPorDia) &&
-                    pagoStats.pagosPorDia.length > 0 ? (
-                      pagoStats.pagosPorDia.map((item, index) => (
-                        <tr
-                          key={`dia-${item.fecha}-${index}`}
-                          className="hover:bg-gray-50"
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {new Date(item.fecha).toLocaleDateString("es-ES")}
+                      pagos.map((pago) => (
+                        <tr key={pago.id} className="hover:bg-gray-50">
+                          <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                            #{pago.id}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {item.total}
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm font-semibold text-violet-600">
+                              {(() => {
+                                const cita = citas.find(
+                                  (c) => c.id === pago.id_cita,
+                                );
+                                return cita
+                                  ? cita.nombre_servicio
+                                  : `Cita #${pago.id_cita}`;
+                              })()}
+                            </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
-                            $
-                            {!isNaN(Number(item.montoTotal?.trim()))
-                              ? Number(item.montoTotal?.trim()).toLocaleString()
-                              : 0}
+                          {console.log("Pago individual:", pago)}
+                          <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-600">
+                              {pago.nombre_cliente
+                                ? pago.nombre_cliente.trim()
+                                : "N/A"}
+                            </span>
+                          </td>
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm font-bold text-green-600">
+                              $
+                              {!isNaN(Number(pago.monto))
+                                ? Number(pago.monto).toLocaleString()
+                                : 0}
+                            </span>
+                          </td>
+                          <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                            <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                              {pago.metodo}
+                            </span>
+                          </td>
+                          <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {pago.fecha_pago
+                              ? new Date(pago.fecha_pago).toLocaleDateString(
+                                  "es-ES",
+                                )
+                              : "N/A"}
                           </td>
                         </tr>
                       ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan="3"
-                          className="px-6 py-8 text-center text-gray-500"
-                        >
-                          No hay pagos registrados.
-                        </td>
-                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -651,55 +565,52 @@ function Pagos() {
                     </td>
                   </tr>
                 ) : (
-                  pagos.map((pago) => {
-                    console.log("Pago individual:", pago);
-                    return (
-                      <tr key={pago.id} className="hover:bg-gray-50">
-                        <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                          #{pago.id}
-                        </td>
-                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-semibold text-violet-600">
-                            {(() => {
-                              const cita = citas.find(
-                                (c) => c.id === pago.id_cita,
-                              );
-                              return cita
-                                ? cita.nombre_servicio
-                                : `Cita #${pago.id_cita}`;
-                            })()}
-                          </span>
-                        </td>
-                        <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-600">
-                            {pago.nombre_cliente
-                              ? pago.nombre_cliente.trim()
-                              : "N/A"}
-                          </span>
-                        </td>
-                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-bold text-green-600">
-                            $
-                            {!isNaN(Number(pago.monto))
-                              ? Number(pago.monto).toLocaleString()
-                              : 0}
-                          </span>
-                        </td>
-                        <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
-                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
-                            {pago.metodo}
-                          </span>
-                        </td>
-                        <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {pago.fecha_pago
-                            ? new Date(pago.fecha_pago).toLocaleDateString(
-                                "es-ES",
-                              )
+                  pagos.map((pago) => (
+                    <tr key={pago.id} className="hover:bg-gray-50">
+                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                        #{pago.id}
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-semibold text-violet-600">
+                          {(() => {
+                            const cita = citas.find(
+                              (c) => c.id === pago.id_cita,
+                            );
+                            return cita
+                              ? cita.nombre_servicio
+                              : `Cita #${pago.id_cita}`;
+                          })()}
+                        </span>
+                      </td>
+                      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-600">
+                          {pago.nombre_cliente
+                            ? pago.nombre_cliente.trim()
                             : "N/A"}
-                        </td>
-                      </tr>
-                    );
-                  })
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-bold text-green-600">
+                          $
+                          {!isNaN(Number(pago.monto))
+                            ? Number(pago.monto).toLocaleString()
+                            : 0}
+                        </span>
+                      </td>
+                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                          {pago.metodo}
+                        </span>
+                      </td>
+                      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {pago.fecha_pago
+                          ? new Date(pago.fecha_pago).toLocaleDateString(
+                              "es-ES",
+                            )
+                          : "N/A"}
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
