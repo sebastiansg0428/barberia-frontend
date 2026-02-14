@@ -187,18 +187,14 @@ function Pagos() {
         getPagoStats(user.id),
       ]).finally(() => setLoading(false));
     } else {
-      // Cliente solo ve sus pagos
+      // Cliente solo ve sus pagos, usando el endpoint filtrado por id_usuario
       Promise.all([
-        fetch(`${API_URL}/pagos`).then((r) => r.json()),
+        fetch(`${API_URL}/pagos?id_usuario=${user.id}`).then((r) => r.json()),
         getUsuarios(),
       ])
         .then(([data]) => {
-          const todosPagos = Array.isArray(data.pagos) ? data.pagos : [];
-          // Filtrar pagos del cliente actual
-          const pagosFiltrados = todosPagos.filter(
-            (p) => p.id_usuario === user.id,
-          );
-          setPagos(pagosFiltrados);
+          const pagosUsuario = Array.isArray(data.pagos) ? data.pagos : [];
+          setPagos(pagosUsuario);
         })
         .catch(console.error)
         .finally(() => setLoading(false));

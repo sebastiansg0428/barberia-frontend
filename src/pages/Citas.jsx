@@ -141,6 +141,7 @@ function Citas() {
       return;
     }
 
+    let newCita = null;
     try {
       // Construir fecha_hora en formato correcto (YYYY-MM-DD HH:MM:SS)
       let fechaHora = "";
@@ -223,7 +224,7 @@ function Citas() {
           return;
         }
 
-        const newCita = await response.json();
+        newCita = await response.json();
         alert("✅ Cita creada exitosamente");
         await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null); // Recargar para obtener datos completos
       }
