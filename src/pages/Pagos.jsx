@@ -373,27 +373,62 @@ function Pagos() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {Array.isArray(pagoStats.pagosPorMes) &&
-                    pagoStats.pagosPorMes.length > 0 ? (
-                      pagoStats.pagosPorMes.map((item) => (
-                        <tr key={item.mes}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {item.mes}
+                    {pagos.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan="6"
+                          className="px-6 py-8 text-center text-gray-500"
+                        >
+                          No hay pagos registrados.
+                        </td>
+                      </tr>
+                    ) : (
+                      pagos.map((pago) => (
+                        <tr key={pago.id} className="hover:bg-gray-50">
+                          <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                            #{pago.id}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap font-bold text-violet-600">
-                            {item.total}
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm font-semibold text-violet-600">
+                              {(() => {
+                                const cita = citas.find(
+                                  (c) => c.id === pago.id_cita,
+                                );
+                                return cita
+                                  ? cita.nombre_servicio
+                                  : `Cita #${pago.id_cita}`;
+                              })()}
+                            </span>
+                          </td>
+                          <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-600">
+                              {pago.nombre_cliente
+                                ? pago.nombre_cliente.trim()
+                                : "N/A"}
+                            </span>
+                          </td>
+                          <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm font-bold text-green-600">
+                              $
+                              {!isNaN(Number(pago.monto))
+                                ? Number(pago.monto).toLocaleString()
+                                : 0}
+                            </span>
+                          </td>
+                          <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                            <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                              {pago.metodo}
+                            </span>
+                          </td>
+                          <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {pago.fecha_pago
+                              ? new Date(pago.fecha_pago).toLocaleDateString(
+                                  "es-ES",
+                                )
+                              : "N/A"}
                           </td>
                         </tr>
                       ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan="2"
-                          className="px-6 py-4 text-center text-gray-500"
-                        >
-                          No hay datos disponibles
-                        </td>
-                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -568,12 +603,21 @@ function Pagos() {
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                         <span className="text-sm font-semibold text-violet-600">
-                          Cita #{pago.id_cita}
+                          {(() => {
+                            const cita = citas.find(
+                              (c) => c.id === pago.id_cita,
+                            );
+                            return cita
+                              ? cita.nombre_servicio
+                              : `Cita #${pago.id_cita}`;
+                          })()}
                         </span>
                       </td>
                       <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-600">
-                          {getNombreUsuario(pago.id_usuario)}
+                          {pago.nombre_cliente
+                            ? pago.nombre_cliente.trim()
+                            : "N/A"}
                         </span>
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
