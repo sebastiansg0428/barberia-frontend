@@ -167,6 +167,11 @@ function Citas() {
         notas: formData.notas,
       };
 
+      // Si el cliente eligió pagar ahora, incluir método de pago
+      if (pagoAhora && metodoPago) {
+        dataToSubmit.metodo_pago = metodoPago;
+      }
+
       if (editId) {
         // Actualizar cita - usar PUT para actualización completa
         const response = await fetch(`${API_URL}/citas/${editId}`, {
@@ -229,39 +234,6 @@ function Citas() {
         await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null); // Recargar para obtener datos completos
       }
 
-      // Si el cliente eligió pagar ahora, registrar pago
-      if (pagoAhora && newCita && newCita.id) {
-        // Obtener precio del servicio
-        const servicio = servicios.find(
-          (s) => s.id === parseInt(formData.servicio_id),
-        );
-        const monto = servicio ? parseFloat(servicio.precio) : 0;
-        const pagoData = {
-          id_cita: newCita.id,
-          monto,
-          metodo: metodoPago,
-          fecha_pago: new Date().toISOString().split("T")[0],
-        };
-        try {
-          const pagoResp = await fetch(`${API_URL}/pagos`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(pagoData),
-          });
-          if (pagoResp.ok) {
-            alert("✅ Pago registrado exitosamente");
-          } else {
-            const error = await pagoResp.json();
-            alert(
-              "❌ Error al registrar pago: " +
-                (error.error || error.message || "Error desconocido"),
-            );
-          }
-        } catch (error) {
-          alert("❌ Error de conexión al registrar el pago");
-        }
-      }
-
       setFormData({
         usuario_id: "",
         servicio_id: "",
@@ -272,6 +244,8 @@ function Citas() {
       });
       setHorasDisponibles([]);
       setShowForm(false);
+      setPagoAhora(false);
+      setMetodoPago("efectivo");
     } catch (error) {
       console.error(error);
       alert(
@@ -342,6 +316,8 @@ function Citas() {
     setHorasDisponibles([]);
     setEditId(null);
     setShowForm(false);
+    setPagoAhora(false);
+    setMetodoPago("efectivo");
   };
 
   const handleLogout = () => {
