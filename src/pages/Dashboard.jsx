@@ -135,6 +135,32 @@ function Dashboard() {
     }
   }, [navigate]);
 
+  // Convierte "2026-02-22" → "22/FEBRERO/2026"
+  const formatearFecha = (fechaStr) => {
+    if (!fechaStr) return "N/A";
+    const fecha = new Date(fechaStr);
+    return fecha
+      .toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+      .replace(" de ", "/")
+      .replace(" de ", "/")
+      .toUpperCase();
+  };
+
+  // Convierte "2026-02" → "FEBRERO/2026"
+  const formatearMes = (claveStr) => {
+    if (!claveStr) return "N/A";
+    const [año, mes] = claveStr.split("-");
+    const fecha = new Date(Number(año), parseInt(mes) - 1);
+    return fecha
+      .toLocaleDateString("es-ES", { month: "long", year: "numeric" })
+      .replace(" de ", "/")
+      .toUpperCase();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -354,11 +380,7 @@ function Dashboard() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user.fecha_registro
-                          ? new Date(user.fecha_registro).toLocaleDateString(
-                              "es-ES",
-                            )
-                          : "N/A"}
+                        {formatearFecha(user.fecha_registro)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {editUserId === user.id ? (
@@ -483,11 +505,7 @@ function Dashboard() {
                       metrics.citasPorDia.map((item, index) => (
                         <tr key={item.dia || item.fecha || index}>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {item.dia || item.fecha
-                              ? new Date(
-                                  item.dia || item.fecha,
-                                ).toLocaleDateString("es-ES")
-                              : "N/A"}
+                            {formatearFecha(item.dia || item.fecha)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-bold text-purple-600">
                             {item.total}
@@ -529,7 +547,7 @@ function Dashboard() {
                       metrics.citasPorMes.map((item) => (
                         <tr key={item.mes}>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {item.mes}
+                            {formatearMes(item.mes)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-bold text-purple-600">
                             {item.total}

@@ -27,29 +27,35 @@ function Citas() {
 
   const [pagoAhora, setPagoAhora] = useState(false);
   const [metodoPago, setMetodoPago] = useState("efectivo");
+  const [comprobante, setComprobante] = useState(null);
+
+  const handleComprobanteChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setComprobante(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("⚠️ El archivo supera los 5MB");
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => setComprobante(reader.result);
+    reader.readAsDataURL(file);
+  };
 
   const getCitas = async (userId = null) => {
     try {
       const response = await fetch(`${API_URL}/citas`);
       if (!response.ok) throw new Error("Error al obtener citas");
       const data = await response.json();
-      console.log("Respuesta del backend:", data);
-      console.log("userId filtro:", userId);
       let citasData = Array.isArray(data.citas) ? data.citas : [];
-      console.log("Citas antes de filtrar:", citasData);
-      console.log(
-        "id_usuario de cada cita:",
-        citasData.map((c) => ({ id: c.id, id_usuario: c.id_usuario })),
-      );
       // Si es cliente, filtrar solo sus citas
       if (userId) {
-        citasData = citasData.filter((c) => {
-          console.log(
-            `Comparando cita ${c.id}: id_usuario=${c.id_usuario} (${typeof c.id_usuario}) con userId=${userId} (${typeof userId})`,
-          );
-          return Number(c.id_usuario) === Number(userId);
-        });
-        console.log("Citas después de filtrar:", citasData);
+        citasData = citasData.filter(
+          (c) => Number(c.id_usuario) === Number(userId),
+        );
       }
       setCitas(citasData);
     } catch (error) {
@@ -229,9 +235,40 @@ function Citas() {
           return;
         }
 
-        newCita = await response.json();
-        alert("✅ Cita creada exitosamente");
-        await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null); // Recargar para obtener datos completos
+        const citaCreada = await response.json();
+        newCita = citaCreada;
+
+        // Auto-registrar pago si eligió pagar ahora
+        if (pagoAhora) {
+          const citaId = citaCreada?.cita?.id || citaCreada?.id;
+          if (citaId) {
+            const servicio = servicios.find(
+              (s) => s.id === parseInt(formData.servicio_id),
+            );
+            const pagoPayload = {
+              id_cita: citaId,
+              monto: parseFloat(servicio?.precio || 0),
+              metodo: metodoPago,
+              fecha_pago: new Date().toISOString().split("T")[0],
+            };
+            if (comprobante) pagoPayload.comprobante = comprobante;
+            try {
+              await fetch(`${API_URL}/pagos`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(pagoPayload),
+              });
+            } catch (err) {
+              console.error("Error al auto-registrar pago:", err);
+            }
+          }
+        }
+
+        alert(
+          "✅ Cita creada exitosamente" +
+            (pagoAhora ? " y pago registrado" : ""),
+        );
+        await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null);
       }
 
       setFormData({
@@ -246,6 +283,7 @@ function Citas() {
       setShowForm(false);
       setPagoAhora(false);
       setMetodoPago("efectivo");
+      setComprobante(null);
     } catch (error) {
       console.error(error);
       alert(
@@ -277,13 +315,22 @@ function Citas() {
   const handleDelete = async (id) => {
     if (!window.confirm("¿Seguro que deseas eliminar esta cita?")) return;
     try {
-      await fetch(`${API_URL}/citas/${id}`, {
+      const response = await fetch(`${API_URL}/citas/${id}`, {
         method: "DELETE",
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const msg =
+          errorData.error || errorData.message || `Error ${response.status}`;
+        alert(`❌ No se pudo eliminar la cita: ${msg}`);
+        return;
+      }
+
       setCitas((prev) => prev.filter((c) => c.id !== id));
     } catch (error) {
       console.error(error);
-      alert("Error al eliminar la cita");
+      alert("❌ Error de conexión al eliminar la cita");
     }
   };
 
@@ -318,6 +365,7 @@ function Citas() {
     setShowForm(false);
     setPagoAhora(false);
     setMetodoPago("efectivo");
+    setComprobante(null);
   };
 
   const handleLogout = () => {
@@ -626,33 +674,77 @@ function Citas() {
                 )}
               </div>
 
-              {/* Opción de pago inmediato */}
-              <div className="flex items-center gap-4 mt-4">
-                <input
-                  id="pagoAhora"
-                  type="checkbox"
-                  checked={pagoAhora}
-                  onChange={(e) => setPagoAhora(e.target.checked)}
-                  className="h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                />
-                <label
-                  htmlFor="pagoAhora"
-                  className="text-sm font-semibold text-gray-700"
-                >
-                  ¿Desea pagar ahora?
-                </label>
-                {pagoAhora && (
-                  <select
-                    id="metodoPago"
-                    name="metodoPago"
-                    value={metodoPago}
-                    onChange={(e) => setMetodoPago(e.target.value)}
-                    className="ml-4 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+              {/* Opción de pago */}
+              <div className="border border-emerald-200 rounded-xl p-4 bg-emerald-50 col-span-1 md:col-span-2">
+                <div className="flex items-center gap-3 mb-2">
+                  <input
+                    id="pagoAhora"
+                    type="checkbox"
+                    checked={pagoAhora}
+                    onChange={(e) => {
+                      setPagoAhora(e.target.checked);
+                      setComprobante(null);
+                    }}
+                    className="h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="pagoAhora"
+                    className="text-sm font-semibold text-gray-700"
                   >
-                    <option value="efectivo">Efectivo</option>
-                    <option value="tarjeta">Tarjeta</option>
-                    <option value="transferencia">Transferencia</option>
-                  </select>
+                    💳 ¿Registrar pago al crear la cita?
+                  </label>
+                </div>
+                {pagoAhora && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        💳 Método de Pago
+                      </label>
+                      <select
+                        id="metodoPago"
+                        value={metodoPago}
+                        onChange={(e) => {
+                          setMetodoPago(e.target.value);
+                          setComprobante(null);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition bg-white"
+                      >
+                        <option value="efectivo">💵 Efectivo</option>
+                        <option value="tarjeta">💳 Tarjeta</option>
+                        <option value="transferencia">🏦 Transferencia</option>
+                      </select>
+                    </div>
+                    {(metodoPago === "tarjeta" ||
+                      metodoPago === "transferencia") && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          📎 Comprobante de pago{" "}
+                          {comprobante && (
+                            <span className="text-emerald-600 font-bold">
+                              ✅ Adjunto
+                            </span>
+                          )}
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={handleComprobanteChange}
+                          className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition"
+                        />
+                        {comprobante &&
+                          comprobante.startsWith("data:image") && (
+                            <img
+                              src={comprobante}
+                              alt="Comprobante"
+                              className="mt-2 max-h-32 rounded-lg border object-contain"
+                            />
+                          )}
+                        <p className="mt-1 text-xs text-gray-500">
+                          Imágenes (JPG, PNG) o PDF · Máx. 5MB
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
