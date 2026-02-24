@@ -25,26 +25,6 @@ function Citas() {
     notas: "",
   });
 
-  const [pagoAhora, setPagoAhora] = useState(false);
-  const [metodoPago, setMetodoPago] = useState("efectivo");
-  const [comprobante, setComprobante] = useState(null);
-
-  const handleComprobanteChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) {
-      setComprobante(null);
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert("⚠️ El archivo supera los 5MB");
-      e.target.value = "";
-      return;
-    }
-    const reader = new FileReader();
-    reader.onloadend = () => setComprobante(reader.result);
-    reader.readAsDataURL(file);
-  };
-
   const getCitas = async (userId = null) => {
     try {
       const response = await fetch(`${API_URL}/citas`);
@@ -88,23 +68,37 @@ function Citas() {
 
   const handleChange = async (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const newFormData = { ...formData, [name]: value };
+    setFormData(newFormData);
 
-    // Si cambia la fecha, cargar horas disponibles
+    // Recalcular disponibilidad si cambia la fecha o el servicio (afecta duración)
     if (name === "fecha" && value) {
-      await checkDisponibilidad(value);
+      await checkDisponibilidad(value, newFormData.servicio_id);
+    }
+    if (name === "servicio_id" && newFormData.fecha) {
+      await checkDisponibilidad(newFormData.fecha, value);
     }
   };
 
-  const checkDisponibilidad = async (fecha) => {
+  const checkDisponibilidad = async (fecha, servicioId = null) => {
     if (!fecha) return;
     setLoadingHoras(true);
     try {
-      // Generar horas de 8am a 8pm cada 30 minutos
+      // Helper: "HH:MM" → minutos desde medianoche
+      const toMin = (hhmm) => {
+        if (!hhmm) return 0;
+        const [h, m] = hhmm.split(":").map(Number);
+        return h * 60 + m;
+      };
+
+      // Generar slots de 05:30 a 23:30 cada 30 minutos
       const todasLasHoras = [];
-      for (let h = 8; h <= 19; h++) {
-        todasLasHoras.push(`${h.toString().padStart(2, "0")}:00`);
-        if (h < 19) todasLasHoras.push(`${h.toString().padStart(2, "0")}:30`);
+      for (let min = 5 * 60 + 30; min <= 23 * 60 + 30; min += 30) {
+        const h = Math.floor(min / 60);
+        const m = min % 60;
+        todasLasHoras.push(
+          `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`,
+        );
       }
 
       // Consultar citas existentes para esa fecha
@@ -112,22 +106,36 @@ function Citas() {
       const data = await response.json();
       const citasFecha = Array.isArray(data.citas)
         ? data.citas.filter((c) => {
-            // Excluir la cita actual si estamos editando
             if (editId && c.id === editId) return false;
-            // Usar fecha_hora que viene del backend
-            const fechaCita =
-              c.fecha_hora?.split("T")[0] || c.fecha_hora?.substring(0, 10);
+            // substring(0,10) funciona con "2026-02-24T08:00" y "2026-02-24 08:00"
+            const fechaCita = c.fecha_hora?.substring(0, 10);
             return fechaCita === fecha && c.estado !== "cancelada";
           })
         : [];
 
-      // Extraer horas del campo fecha_hora (formato: HH:MM)
-      const horasOcupadas = citasFecha.map((c) =>
-        c.fecha_hora?.substring(11, 16),
-      );
-      const horasLibres = todasLasHoras.filter(
-        (h) => !horasOcupadas.includes(h),
-      );
+      // Bloques ocupados: [inicio, inicio + duración) en minutos
+      const bloques = citasFecha.map((c) => {
+        const svc = servicios.find(
+          (s) => s.id === (c.id_servicio || parseInt(c.servicio_id)),
+        );
+        // duracion en minutos; si no existe el campo usar 60 como fallback seguro
+        const duracion = svc?.duracion ? parseInt(svc.duracion) : 60;
+        const inicio = toMin(c.fecha_hora?.substring(11, 16));
+        return { inicio, fin: inicio + duracion };
+      });
+
+      // Duración del servicio que se intenta agendar
+      const svcNuevo = servicios.find((s) => s.id === parseInt(servicioId));
+      const duracionNueva = svcNuevo?.duracion
+        ? parseInt(svcNuevo.duracion)
+        : 60;
+
+      // Un slot está libre si [slot, slot+duracionNueva) NO se solapa con ningún bloque ocupado
+      const horasLibres = todasLasHoras.filter((h) => {
+        const slotInicio = toMin(h);
+        const slotFin = slotInicio + duracionNueva;
+        return !bloques.some((b) => slotInicio < b.fin && slotFin > b.inicio);
+      });
 
       setHorasDisponibles(horasLibres);
     } catch (error) {
@@ -172,11 +180,6 @@ function Citas() {
         estado: formData.estado || "pendiente",
         notas: formData.notas,
       };
-
-      // Si el cliente eligió pagar ahora, incluir método de pago
-      if (pagoAhora && metodoPago) {
-        dataToSubmit.metodo_pago = metodoPago;
-      }
 
       if (editId) {
         // Actualizar cita - usar PUT para actualización completa
@@ -225,7 +228,7 @@ function Citas() {
                   "Esta hora ya está ocupada. Por favor elige otra hora."),
             );
             // Recargar disponibilidad
-            await checkDisponibilidad(formData.fecha);
+            await checkDisponibilidad(formData.fecha, formData.servicio_id);
           } else {
             alert(
               "❌ Error al crear la cita: " +
@@ -238,36 +241,7 @@ function Citas() {
         const citaCreada = await response.json();
         newCita = citaCreada;
 
-        // Auto-registrar pago si eligió pagar ahora
-        if (pagoAhora) {
-          const citaId = citaCreada?.cita?.id || citaCreada?.id;
-          if (citaId) {
-            const servicio = servicios.find(
-              (s) => s.id === parseInt(formData.servicio_id),
-            );
-            const pagoPayload = {
-              id_cita: citaId,
-              monto: parseFloat(servicio?.precio || 0),
-              metodo: metodoPago,
-              fecha_pago: new Date().toISOString().split("T")[0],
-            };
-            if (comprobante) pagoPayload.comprobante = comprobante;
-            try {
-              await fetch(`${API_URL}/pagos`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(pagoPayload),
-              });
-            } catch (err) {
-              console.error("Error al auto-registrar pago:", err);
-            }
-          }
-        }
-
-        alert(
-          "✅ Cita creada exitosamente" +
-            (pagoAhora ? " y pago registrado" : ""),
-        );
+        alert("✅ Cita creada exitosamente");
         await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null);
       }
 
@@ -281,9 +255,6 @@ function Citas() {
       });
       setHorasDisponibles([]);
       setShowForm(false);
-      setPagoAhora(false);
-      setMetodoPago("efectivo");
-      setComprobante(null);
     } catch (error) {
       console.error(error);
       alert(
@@ -307,7 +278,7 @@ function Citas() {
     });
     // Cargar disponibilidad para la fecha de la cita
     if (fechaFormateada) {
-      await checkDisponibilidad(fechaFormateada);
+      await checkDisponibilidad(fechaFormateada, cita.id_servicio);
     }
     setShowForm(true);
   };
@@ -363,9 +334,6 @@ function Citas() {
     setHorasDisponibles([]);
     setEditId(null);
     setShowForm(false);
-    setPagoAhora(false);
-    setMetodoPago("efectivo");
-    setComprobante(null);
   };
 
   const handleLogout = () => {
@@ -642,8 +610,9 @@ function Citas() {
                         ))}
                       </select>
                       <p className="mt-2 text-sm text-green-600">
-                        ✅ {horasDisponibles.length} hora(s) disponible(s) para
-                        esta fecha
+                        {formData.hora
+                          ? `✅ Hora seleccionada: ${formData.hora} · ${horasDisponibles.length} turno(s) libre(s) en total`
+                          : `✅ ${horasDisponibles.length} turno(s) libre(s) para esta fecha`}
                       </p>
                     </>
                   )}
@@ -670,80 +639,6 @@ function Citas() {
                       <option value="completada">Completada</option>
                       <option value="cancelada">Cancelada</option>
                     </select>
-                  </div>
-                )}
-              </div>
-
-              {/* Opción de pago */}
-              <div className="border border-emerald-200 rounded-xl p-4 bg-emerald-50 col-span-1 md:col-span-2">
-                <div className="flex items-center gap-3 mb-2">
-                  <input
-                    id="pagoAhora"
-                    type="checkbox"
-                    checked={pagoAhora}
-                    onChange={(e) => {
-                      setPagoAhora(e.target.checked);
-                      setComprobante(null);
-                    }}
-                    className="h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                  />
-                  <label
-                    htmlFor="pagoAhora"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    💳 ¿Registrar pago al crear la cita?
-                  </label>
-                </div>
-                {pagoAhora && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        💳 Método de Pago
-                      </label>
-                      <select
-                        id="metodoPago"
-                        value={metodoPago}
-                        onChange={(e) => {
-                          setMetodoPago(e.target.value);
-                          setComprobante(null);
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition bg-white"
-                      >
-                        <option value="efectivo">💵 Efectivo</option>
-                        <option value="tarjeta">💳 Tarjeta</option>
-                        <option value="transferencia">🏦 Transferencia</option>
-                      </select>
-                    </div>
-                    {(metodoPago === "tarjeta" ||
-                      metodoPago === "transferencia") && (
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          📎 Comprobante de pago{" "}
-                          {comprobante && (
-                            <span className="text-emerald-600 font-bold">
-                              ✅ Adjunto
-                            </span>
-                          )}
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={handleComprobanteChange}
-                          className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition"
-                        />
-                        {comprobante &&
-                          comprobante.startsWith("data:image") && (
-                            <img
-                              src={comprobante}
-                              alt="Comprobante"
-                              className="mt-2 max-h-32 rounded-lg border object-contain"
-                            />
-                          )}
-                        <p className="mt-1 text-xs text-gray-500">
-                          Imágenes (JPG, PNG) o PDF · Máx. 5MB
-                        </p>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
