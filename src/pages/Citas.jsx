@@ -16,6 +16,9 @@ function Citas() {
   const [horasDisponibles, setHorasDisponibles] = useState([]);
   const [loadingHoras, setLoadingHoras] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [metodoPago, setMetodoPago] = useState("efectivo");
+  const [comprobante, setComprobante] = useState(null);
+  const [loadingPago, setLoadingPago] = useState(false);
   const [formData, setFormData] = useState({
     usuario_id: "",
     servicio_id: "",
@@ -24,6 +27,22 @@ function Citas() {
     estado: "pendiente",
     notas: "",
   });
+
+  const handleComprobanteChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setComprobante(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("⚠️ El archivo supera los 5MB");
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => setComprobante(reader.result);
+    reader.readAsDataURL(file);
+  };
 
   const getCitas = async (userId = null) => {
     try {
@@ -241,7 +260,41 @@ function Citas() {
         const citaCreada = await response.json();
         newCita = citaCreada;
 
-        alert("✅ Cita creada exitosamente");
+        // Si eligió transferencia o tarjeta, registrar el pago con comprobante
+        if (metodoPago !== "efectivo") {
+          const citaId = citaCreada?.cita?.id || citaCreada?.id;
+          if (citaId && comprobante) {
+            setLoadingPago(true);
+            try {
+              const servicio = servicios.find(
+                (s) => s.id === parseInt(formData.servicio_id),
+              );
+              await fetch(`${API_URL}/pagos`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id_cita: citaId,
+                  id_usuario: currentUser.id,
+                  monto: parseFloat(servicio?.precio || 0),
+                  metodo: metodoPago,
+                  comprobante: comprobante,
+                  fecha_pago: new Date().toISOString().split("T")[0],
+                }),
+              });
+            } catch {
+              /* silencioso, el admin puede registrar manual */
+            } finally {
+              setLoadingPago(false);
+            }
+          }
+          alert(
+            "✅ Cita creada y comprobante enviado. El admin revisará tu pago.",
+          );
+        } else {
+          alert(
+            "✅ Cita creada exitosamente. Recuerda pagar en efectivo el día de tu cita.",
+          );
+        }
         await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null);
       }
 
@@ -334,6 +387,8 @@ function Citas() {
     setHorasDisponibles([]);
     setEditId(null);
     setShowForm(false);
+    setMetodoPago("efectivo");
+    setComprobante(null);
   };
 
   const handleLogout = () => {
@@ -661,12 +716,108 @@ function Citas() {
                 />
               </div>
 
+              {/* Sección de pago — solo para clientes al CREAR (no editar) */}
+              {currentUser?.rol !== "admin" && !editId && (
+                <div className="border border-violet-200 rounded-xl p-4 bg-violet-50 col-span-1 md:col-span-2">
+                  <p className="text-sm font-bold text-violet-700 mb-3">
+                    💳 Método de Pago
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {["efectivo", "transferencia", "tarjeta"].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          setMetodoPago(m);
+                          setComprobante(null);
+                        }}
+                        className={`py-2 px-3 rounded-lg text-sm font-semibold border-2 capitalize transition ${
+                          metodoPago === m
+                            ? "border-violet-600 bg-violet-600 text-white"
+                            : "border-gray-300 bg-white text-gray-700 hover:border-violet-400"
+                        }`}
+                      >
+                        {m === "efectivo"
+                          ? "💵 Efectivo"
+                          : m === "transferencia"
+                            ? "🏦 Transferencia"
+                            : "💳 Tarjeta"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {metodoPago === "efectivo" && (
+                    <p className="text-sm text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      💵 Pagarás en efectivo el día de tu cita en la barbería.
+                    </p>
+                  )}
+
+                  {(metodoPago === "transferencia" ||
+                    metodoPago === "tarjeta") && (
+                    <div className="space-y-3">
+                      <div className="bg-green-50 border border-green-300 rounded-xl p-4">
+                        <p className="text-sm font-bold text-green-800 mb-1">
+                          📲 Nequi — Barbería K-19
+                        </p>
+                        <p className="text-2xl font-extrabold text-green-700 tracking-widest">
+                          320 732 8557
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          Envía el valor exacto del servicio y adjunta el
+                          comprobante abajo.
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          📎 Comprobante de pago{" "}
+                          <span className="text-red-500">*obligatorio</span>
+                          {comprobante && (
+                            <span className="text-green-600 ml-2">
+                              ✅ Adjunto
+                            </span>
+                          )}
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={handleComprobanteChange}
+                          required
+                          className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-100 file:text-violet-700 hover:file:bg-violet-200 transition"
+                        />
+                        {comprobante &&
+                          comprobante.startsWith("data:image") && (
+                            <img
+                              src={comprobante}
+                              alt="Comprobante"
+                              className="mt-2 max-h-40 rounded-lg border object-contain"
+                            />
+                          )}
+                        <p className="mt-1 text-xs text-gray-400">
+                          Imágenes (JPG, PNG) o PDF · Máx. 5 MB
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-3 sm:space-x-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 text-white py-3 px-6 rounded-lg font-bold hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 transition transform hover:scale-105 shadow-md"
+                  disabled={
+                    loadingPago ||
+                    (currentUser?.rol !== "admin" &&
+                      !editId &&
+                      metodoPago !== "efectivo" &&
+                      !comprobante)
+                  }
+                  className="flex-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 text-white py-3 px-6 rounded-lg font-bold hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 transition transform hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editId ? "💾 Actualizar" : "➕ Crear Cita"}
+                  {loadingPago
+                    ? "⏳ Enviando pago..."
+                    : editId
+                      ? "💾 Actualizar"
+                      : "➕ Crear Cita"}
                 </button>
                 <button
                   type="button"

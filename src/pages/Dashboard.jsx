@@ -201,33 +201,58 @@ function Dashboard() {
             <div
               className={`flex-col sm:flex-row sm:flex items-center space-y-2 sm:space-y-0 sm:space-x-4 absolute sm:static top-16 left-0 w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 sm:bg-none p-4 sm:p-0 transition-all duration-200 z-40 ${menuOpen ? "flex" : "hidden sm:flex"}`}
             >
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  navigate("/servicios");
-                }}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition w-full sm:w-auto"
-              >
-                💈 Gestión de Servicios
-              </button>
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  navigate("/citas");
-                }}
-                className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-green-700 hover:to-teal-700 transition w-full sm:w-auto"
-              >
-                📅 Gestión de Citas
-              </button>
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  navigate("/pagos");
-                }}
-                className="bg-gradient-to-r from-violet-600 to-pink-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-violet-700 hover:to-pink-700 transition w-full sm:w-auto"
-              >
-                💸 Gestión de Pagos
-              </button>
+              {currentUser?.rol === "admin" ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/servicios");
+                    }}
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition w-full sm:w-auto"
+                  >
+                    💈 Gestión de Servicios
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/citas");
+                    }}
+                    className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-green-700 hover:to-teal-700 transition w-full sm:w-auto"
+                  >
+                    📅 Gestión de Citas
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/pagos");
+                    }}
+                    className="bg-gradient-to-r from-violet-600 to-pink-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-violet-700 hover:to-pink-700 transition w-full sm:w-auto"
+                  >
+                    💸 Gestión de Pagos
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/citas");
+                    }}
+                    className="bg-gradient-to-r from-green-500 to-teal-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-green-600 hover:to-teal-600 transition w-full sm:w-auto"
+                  >
+                    📅 Mis Citas
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/pagos");
+                    }}
+                    className="bg-gradient-to-r from-violet-500 to-pink-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-violet-600 hover:to-pink-600 transition w-full sm:w-auto"
+                  >
+                    💳 Mis Pagos
+                  </button>
+                </>
+              )}
               <span className="text-sm w-full sm:w-auto text-center">
                 👤 {currentUser?.nombre}
               </span>
@@ -250,6 +275,118 @@ function Dashboard() {
 
       {/* Contenido */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Panel de bienvenida para CLIENTES */}
+        {currentUser?.rol !== "admin" && (
+          <div className="space-y-6">
+            {/* Bienvenida */}
+            <div className="relative bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 rounded-2xl shadow-xl p-8 text-white overflow-hidden">
+              <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/10 rounded-full" />
+              <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-white/10 rounded-full" />
+              <div className="relative z-10">
+                <p className="text-violet-200 text-sm font-semibold tracking-wide uppercase mb-1">
+                  Bienvenido de nuevo
+                </p>
+                <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">
+                  {currentUser?.nombre} ✨
+                </h1>
+                <p className="text-violet-100 text-sm">
+                  Gestioná tus citas y pagos desde aquí.
+                </p>
+              </div>
+            </div>
+
+            {/* Accesos rápidos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                onClick={() => navigate("/citas")}
+                className="group bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 p-6 flex items-center gap-5 transition hover:-translate-y-1"
+              >
+                <div className="bg-gradient-to-br from-green-400 to-teal-500 p-4 rounded-xl text-white text-3xl shadow-md">
+                  📅
+                </div>
+                <div className="text-left">
+                  <p className="text-lg font-bold text-gray-800 group-hover:text-green-600 transition">
+                    Mis Citas
+                  </p>
+                  <p className="text-sm text-gray-500">Ver y agendar turnos</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate("/pagos")}
+                className="group bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 p-6 flex items-center gap-5 transition hover:-translate-y-1"
+              >
+                <div className="bg-gradient-to-br from-violet-500 to-pink-500 p-4 rounded-xl text-white text-3xl shadow-md">
+                  💳
+                </div>
+                <div className="text-left">
+                  <p className="text-lg font-bold text-gray-800 group-hover:text-violet-600 transition">
+                    Mis Pagos
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Historial y estado de pagos
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            {/* Info de la barbería */}
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">
+                ✂️ Barbería K-19
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">📍</span>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase">
+                      Dirección
+                    </p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      Barrio K-19, Local Principal
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">⏰</span>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase">
+                      Horario
+                    </p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      05:30 a.m. — 11:30 p.m.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">📲</span>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase">
+                      Nequi / Contacto
+                    </p>
+                    <p className="text-sm font-bold text-violet-700 tracking-widest">
+                      320 732 8557
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tip del día */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-4">
+              <span className="text-3xl">💡</span>
+              <div>
+                <p className="font-bold text-amber-800 mb-1">Recuerda</p>
+                <p className="text-sm text-amber-700">
+                  Si pagas por transferencia o tarjeta, adjunta tu comprobante
+                  al momento de agendar. El administrador revisará y aprobará tu
+                  pago.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Gestión de Usuarios - Solo Admin */}
         {currentUser?.rol === "admin" && (
           <div className="bg-white rounded-xl shadow-md p-4 sm:p-8 mb-8">
