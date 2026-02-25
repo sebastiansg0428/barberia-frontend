@@ -375,6 +375,47 @@ function Citas() {
     }
   };
 
+  // Cambia el estado de una cita sin abrir el formulario
+  const handleCambiarEstado = async (id, nuevoEstado) => {
+    const mensajes = {
+      confirmada: "¿Confirmar esta cita?",
+      completada: "¿Marcar esta cita como completada?",
+      cancelada: "¿Cancelar esta cita?",
+    };
+    if (!window.confirm(mensajes[nuevoEstado] || "¿Cambiar estado?")) return;
+    try {
+      const response = await fetch(`${API_URL}/citas/${id}/estado`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      });
+      if (!response.ok) {
+        // Si no existe el endpoint PATCH /estado, intentar con PUT completo
+        const cita = citas.find((c) => c.id === id);
+        if (cita) {
+          const fechaHora = cita.fecha_hora?.replace("T", " ").substring(0, 19);
+          await fetch(`${API_URL}/citas/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id_usuario: cita.id_usuario,
+              id_servicio: cita.id_servicio,
+              fecha_hora: fechaHora,
+              estado: nuevoEstado,
+              notas: cita.notas || "",
+            }),
+          });
+        }
+      }
+      setCitas((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, estado: nuevoEstado } : c)),
+      );
+    } catch (error) {
+      console.error(error);
+      alert("❌ Error al cambiar el estado de la cita");
+    }
+  };
+
   const handleCancelForm = () => {
     setFormData({
       usuario_id: "",
@@ -925,27 +966,51 @@ function Citas() {
                                 : "bg-yellow-100 text-yellow-800"
                           }`}
                         >
-                          {cita.estado}
+                          {cita.estado === "pendiente" && "⏳ Pendiente"}
+                          {cita.estado === "completada" && "💈 Completada"}
+                          {cita.estado === "cancelada" && "❌ Cancelada"}
                         </span>
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex flex-col sm:flex-row gap-2">
                           {currentUser?.rol === "admin" ? (
                             <>
+                              {/* Acción rápida según estado */}
+                              {cita.estado === "pendiente" && (
+                                <button
+                                  onClick={() =>
+                                    handleCambiarEstado(cita.id, "completada")
+                                  }
+                                  className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                >
+                                  💈 Completar
+                                </button>
+                              )}
+                              {cita.estado === "completada" && (
+                                <button
+                                  onClick={() => navigate("/pagos")}
+                                  className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                >
+                                  💰 Cobrar
+                                </button>
+                              )}
+                              {cita.estado !== "cancelada" &&
+                                cita.estado !== "completada" && (
+                                  <button
+                                    onClick={() =>
+                                      handleCambiarEstado(cita.id, "cancelada")
+                                    }
+                                    className="bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                  >
+                                    ❌ Cancelar
+                                  </button>
+                                )}
                               <button
                                 onClick={() => handleEdit(cita)}
                                 className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
                               >
                                 ✏️ Editar
                               </button>
-                              {cita.estado === "completada" && (
-                                <button
-                                  onClick={() => navigate("/pagos")}
-                                  className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
-                                >
-                                  💰 Pago
-                                </button>
-                              )}
                               <button
                                 onClick={() => handleDelete(cita.id)}
                                 className="bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-600 hover:to-pink-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"

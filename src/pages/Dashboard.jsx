@@ -231,37 +231,7 @@ function Dashboard() {
                     💸 Gestión de Pagos
                   </button>
                 </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => {
-                      navigate("/servicios");
-                    }}
-                    className="bg-gradient-to-r from-violet-500 to-pink-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-violet-600 hover:to-pink-600 transition w-full sm:w-auto"
-                  >
-                    💈 Servicios
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      navigate("/citas");
-                    }}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition w-full sm:w-auto"
-                  >
-                    📅 Mis Citas
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      navigate("/pagos");
-                    }}
-                    className="bg-gradient-to-r from-violet-500 to-pink-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-violet-600 hover:to-pink-600 transition w-full sm:w-auto"
-                  >
-                    💳 Mis Pagos
-                  </button>
-                </>
-              )}
+              ) : null}
               <span className="text-sm w-full sm:w-auto text-center">
                 👤 {currentUser?.nombre}
               </span>

@@ -40,11 +40,15 @@ function Pagos() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [comprobanteModal, setComprobanteModal] = useState(null); // URL base64 de la imagen a ver
 
   /* --- admin state --- */
   const [pagos, setPagos] = useState([]);
   const [pagoStats, setPagoStats] = useState(null);
   const [citas, setCitas] = useState([]);
+  // pagosPorCita: Map { citaId -> pago } obtenido via /pagos/cita/:id
+  // Workaround al bug del backend donde GET /pagos puede devolver []
+  const [pagosPorCita, setPagosPorCita] = useState({});
   const [reporte, setReporte] = useState(null);
   const [loadingRep, setLoadingRep] = useState(false);
   const [filtros, setFiltros] = useState({
@@ -89,7 +93,40 @@ function Pagos() {
     try {
       const res = await fetch(`${API_URL}/citas`);
       const data = await res.json();
-      setCitas(Array.isArray(data.citas) ? data.citas : []);
+      const lista = Array.isArray(data.citas) ? data.citas : [];
+      setCitas(lista);
+      // Para cada cita completada, consultar su pago directo via /pagos/cita/:id
+      // Esto es el workaround porque GET /pagos del backend puede devolver [] por bug
+      const completadas = lista.filter((c) => c.estado === "completada");
+      if (completadas.length > 0) {
+        const resultados = await Promise.allSettled(
+          completadas.map((c) =>
+            fetch(`${API_URL}/pagos/cita/${c.id}`)
+              .then((r) => r.json())
+              .then((d) => {
+                // El backend puede devolver varios formatos:
+                // { pago: {...} } | { pagos: [...] } | [{...}] | {...id, id_cita}
+                let pago = null;
+                if (d && !d.error) {
+                  if (d.pago && d.pago.id) pago = d.pago;
+                  else if (Array.isArray(d.pagos) && d.pagos.length > 0)
+                    pago = d.pagos[0];
+                  else if (Array.isArray(d) && d.length > 0) pago = d[0];
+                  else if (d.id && d.id_cita) pago = d;
+                }
+                return { citaId: c.id, pago };
+              })
+              .catch(() => ({ citaId: c.id, pago: null })),
+          ),
+        );
+        const mapa = {};
+        resultados.forEach((r) => {
+          if (r.status === "fulfilled" && r.value.pago) {
+            mapa[r.value.citaId] = r.value.pago;
+          }
+        });
+        setPagosPorCita(mapa);
+      }
     } catch {
       setCitas([]);
     }
@@ -325,23 +362,40 @@ function Pagos() {
   }, [navigate]);
 
   /* ========== DERIVADOS ========== */
-  const pendientesAprobacion = pagos.filter(
+  // Unir pagos del GET /pagos con pagos encontrados via /pagos/cita/:id
+  // para que aunque GET /pagos devuelva [] el listado de pendientes sea correcto
+  const todosPagosPendientes = [
+    ...pagos,
+    ...Object.values(pagosPorCita).filter(
+      (p) => !pagos.some((x) => x.id === p.id), // evitar duplicados
+    ),
+  ];
+
+  const pendientesAprobacion = todosPagosPendientes.filter(
     (p) =>
       (p.estado === "pendiente" || !p.estado) &&
       (p.metodo === "tarjeta" || p.metodo === "transferencia"),
   );
-  // Incluye citas pendientes/confirmadas Y completadas que no tienen pago aprobado
-  const citasSinPago = citas.filter(
-    (c) =>
-      (c.estado === "completada" ||
-        c.estado === "pendiente" ||
-        c.estado === "confirmada") &&
-      !pagos.some(
-        (p) =>
-          p.id_cita === c.id &&
-          (p.estado === "aprobado" || p.metodo === "efectivo"),
-      ),
-  );
+
+  // Citas completadas que aún no tienen pago aprobado
+  // Fuente de verdad (en orden de prioridad):
+  //   1. pagosPorCita[c.id]  → consulta directa /pagos/cita/:id (más confiable)
+  //   2. pagos.find(...)     → GET /pagos si el backend lo devuelve
+  //   3. c.id_pago / c.estado_pago → campos JOIN de GET /citas (puede llegar null)
+  const citasSinPago = citas
+    .filter((c) => c.estado === "completada")
+    .map((c) => {
+      const pagoDirecto = pagosPorCita[c.id] || null;
+      const pagoDelArray = pagos.find((p) => p.id_cita === c.id) || null;
+      const pagoReal = pagoDirecto || pagoDelArray || null;
+      const estadoEfectivo = pagoReal ? pagoReal.estado : c.estado_pago || null;
+      return {
+        ...c,
+        _pagoReal: pagoReal,
+        _estadoPagoEfectivo: estadoEfectivo,
+      };
+    })
+    .filter((c) => c._estadoPagoEfectivo !== "aprobado");
 
   const handleLogout = () => {
     logout();
@@ -361,6 +415,40 @@ function Pagos() {
   /* ========== RENDER ========== */
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Modal visor de comprobante */}
+      {comprobanteModal && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          onClick={() => setComprobanteModal(null)}
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setComprobanteModal(null)}
+              className="absolute top-3 right-3 bg-gray-100 hover:bg-red-100 text-gray-700 hover:text-red-600 rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg transition"
+            >
+              ×
+            </button>
+            <h3 className="text-lg font-bold text-gray-800 mb-3">
+              📎 Comprobante de pago
+            </h3>
+            <img
+              src={comprobanteModal}
+              alt="Comprobante"
+              className="w-full rounded-lg border border-gray-200 object-contain max-h-[70vh]"
+            />
+            <a
+              href={comprobanteModal}
+              download="comprobante.png"
+              className="mt-3 inline-block text-sm text-violet-600 underline"
+            >
+              ↓ Descargar imagen
+            </a>
+          </div>
+        </div>
+      )}
       {/* NAVBAR */}
       <nav className="bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -561,18 +649,28 @@ function Pagos() {
                             {pago.metodo}
                           </span>
                           <span className="text-xs text-gray-400">
-                            {fmtFecha(pago.fecha_pago)}
+                            {fmtFecha(pago.fecha)}
                           </span>
                         </div>
                         {pago.comprobante && (
-                          <a
-                            href={pago.comprobante}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-violet-600 underline"
-                          >
-                            Ver comprobante adjunto
-                          </a>
+                          <div className="flex items-center gap-3 mt-1">
+                            <img
+                              src={pago.comprobante}
+                              alt="Comprobante"
+                              className="w-14 h-14 object-cover rounded-lg border border-yellow-200 cursor-pointer hover:scale-105 transition shadow"
+                              onClick={() =>
+                                setComprobanteModal(pago.comprobante)
+                              }
+                            />
+                            <button
+                              onClick={() =>
+                                setComprobanteModal(pago.comprobante)
+                              }
+                              className="text-xs text-violet-600 underline font-semibold hover:text-violet-800"
+                            >
+                              🔍 Ver comprobante
+                            </button>
+                          </div>
                         )}
                       </div>
                       <div className="flex gap-2">
@@ -623,22 +721,91 @@ function Pagos() {
                         <span className="text-xs text-gray-400">
                           {fmtFecha(cita.fecha_hora?.substring(0, 10))}
                         </span>
+                        {/* Badge de método de pago si viene de un pago real */}
+                        {cita._pagoReal && (
+                          <span
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              cita._pagoReal.metodo === "transferencia" ||
+                              cita._pagoReal.metodo === "tarjeta"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {cita._pagoReal.metodo === "transferencia"
+                              ? "🏦 Transferencia"
+                              : cita._pagoReal.metodo === "tarjeta"
+                                ? "💳 Tarjeta"
+                                : cita._pagoReal.metodo}
+                          </span>
+                        )}
+                        {/* Thumbnail del comprobante si existe */}
+                        {cita._pagoReal?.comprobante && (
+                          <img
+                            src={cita._pagoReal.comprobante}
+                            alt="Comprobante"
+                            className="w-10 h-10 object-cover rounded-lg border border-blue-200 cursor-pointer hover:scale-110 transition shadow"
+                            onClick={() =>
+                              setComprobanteModal(cita._pagoReal.comprobante)
+                            }
+                            title="Ver comprobante"
+                          />
+                        )}
                       </div>
-                      {cita.estado === "completada" ? (
+                      {/* Botones según el estado real del pago */}
+                      {/* Si hay un pago pendiente (transferencia/tarjeta) → Aprobar/Rechazar */}
+                      {/* Si no hay pago → Cobrar en efectivo */}
+                      {cita._pagoReal ? (
+                        cita._pagoReal.estado === "pendiente" ? (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleAprobar(cita._pagoReal.id)}
+                              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap"
+                            >
+                              ✅ Aprobar pago
+                            </button>
+                            <button
+                              onClick={() => handleRechazar(cita._pagoReal.id)}
+                              className="bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap"
+                            >
+                              ❌ Rechazar
+                            </button>
+                          </div>
+                        ) : cita._pagoReal.estado === "rechazado" ? (
+                          <div className="flex flex-col gap-1 items-end">
+                            <span className="text-xs text-red-500 font-semibold">
+                              Pago rechazado
+                            </span>
+                            <button
+                              onClick={() => handlePagoEfectivo(cita)}
+                              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-5 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap"
+                            >
+                              💵 Cobrar en efectivo
+                            </button>
+                          </div>
+                        ) : null
+                      ) : cita.id_pago === null ? (
                         <button
                           onClick={() => handlePagoEfectivo(cita)}
                           className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-5 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap"
                         >
-                          Cobrar en efectivo
+                          💵 Cobrar en efectivo
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => handleCompletarYCobrar(cita)}
-                          className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-5 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap"
-                        >
-                          Completar y cobrar
-                        </button>
-                      )}
+                      ) : cita.estado_pago === "pendiente" ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAprobar(cita.id_pago)}
+                            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap"
+                          >
+                            ✅ Aprobar pago
+                          </button>
+                          <button
+                            onClick={() => handleRechazar(cita.id_pago)}
+                            className="bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap"
+                          >
+                            ❌ Rechazar
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -929,18 +1096,25 @@ function Pagos() {
                               </span>
                             </td>
                             <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
-                              {fmtFecha(pago.fecha_pago)}
+                              {fmtFecha(pago.fecha)}
                             </td>
                             <td className="px-4 py-3">
                               {pago.comprobante ? (
-                                <a
-                                  href={pago.comprobante}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-violet-600 underline text-xs"
+                                <button
+                                  onClick={() =>
+                                    setComprobanteModal(pago.comprobante)
+                                  }
+                                  className="flex items-center gap-2 group"
                                 >
-                                  Ver
-                                </a>
+                                  <img
+                                    src={pago.comprobante}
+                                    alt="Comprobante"
+                                    className="w-10 h-10 object-cover rounded-lg border border-gray-200 group-hover:scale-105 transition shadow"
+                                  />
+                                  <span className="text-xs text-violet-600 underline">
+                                    🔍 Ver
+                                  </span>
+                                </button>
                               ) : (
                                 <span className="text-gray-300 text-xs">—</span>
                               )}
@@ -1221,7 +1395,7 @@ function Pagos() {
                               </span>
                             </td>
                             <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
-                              {fmtFecha(pago.fecha_pago)}
+                              {fmtFecha(pago.fecha)}
                             </td>
                           </tr>
                         );
