@@ -20,6 +20,9 @@ function Citas() {
   const [comprobante, setComprobante] = useState(null); // base64 para preview
   const [comprobanteFile, setComprobanteFile] = useState(null); // File para FormData
   const [loadingPago, setLoadingPago] = useState(false);
+  // pasoPostCita: estado del flujo de pago post-creación
+  // { tipo: "efectivo" | "pago", citaId, metodo, servicioId }
+  const [pasoPostCita, setPasoPostCita] = useState(null);
   const [formData, setFormData] = useState({
     usuario_id: "",
     servicio_id: "",
@@ -234,6 +237,19 @@ function Citas() {
           prev.map((c) => (c.id === editId ? { ...c, ...dataToSubmit } : c)),
         );
         setEditId(null);
+        setFormData({
+          usuario_id: "",
+          servicio_id: "",
+          fecha: "",
+          hora: "",
+          estado: "reservada",
+          notas: "",
+        });
+        setHorasDisponibles([]);
+        setShowForm(false);
+        setMetodoPago("efectivo");
+        setComprobante(null);
+        setComprobanteFile(null);
         alert("✅ Cita actualizada exitosamente");
       } else {
         // Crear cita
@@ -265,76 +281,47 @@ function Citas() {
         const citaCreada = await response.json();
         newCita = citaCreada;
 
-        // Si eligió transferencia o tarjeta, registrar el pago con comprobante
-        if (metodoPago !== "efectivo") {
-          const citaId = citaCreada?.cita?.id || citaCreada?.id;
-          if (citaId) {
-            setLoadingPago(true);
-            try {
-              const servicio = servicios.find(
-                (s) => s.id === parseInt(formData.servicio_id),
-              );
-              const formPago = new FormData();
-              formPago.append("id_cita", citaId);
-              formPago.append("id_usuario", currentUser.id);
-              formPago.append("monto", parseFloat(servicio?.precio || 0));
-              formPago.append("metodo", metodoPago);
-              if (comprobanteFile)
-                formPago.append(
-                  "comprobante",
-                  comprobanteFile,
-                  comprobanteFile.name,
-                );
-
-              const resPago = await fetch(`${API_URL}/pagos`, {
-                method: "POST",
-                body: formPago, // sin Content-Type: el navegador pone el boundary automático
-              });
-
-              if (!resPago.ok) {
-                const err = await resPago.json();
-                alert(
-                  "⚠️ Cita creada pero hubo un error al enviar el comprobante: " +
-                    (err.error || "desconocido"),
-                );
-              } else {
-                alert(
-                  "✅ Cita creada y comprobante enviado. El admin revisará tu pago.",
-                );
-              }
-            } catch {
-              alert(
-                "✅ Cita creada. No se pudo enviar el comprobante, puedes intentarlo más tarde.",
-              );
-            } finally {
-              setLoadingPago(false);
-            }
-          } else {
-            alert(
-              "✅ Cita creada y comprobante enviado. El admin revisará tu pago.",
-            );
-          }
-        } else {
-          alert(
-            "✅ Cita creada exitosamente. Recuerda pagar en efectivo el día de tu cita.",
-          );
-        }
+        const citaId =
+          citaCreada?.cita?.id || citaCreada?.id_cita || citaCreada?.id;
         await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null);
-      }
 
-      setFormData({
-        usuario_id: "",
-        servicio_id: "",
-        fecha: "",
-        hora: "",
-        estado: "reservada",
-        notas: "",
-      });
-      setHorasDisponibles([]);
-      setShowForm(false);
-      setMetodoPago("efectivo");
-      setComprobante(null);
-      setComprobanteFile(null);
+        // Resetear y cerrar el formulario principal
+        setFormData({
+          usuario_id: "",
+          servicio_id: "",
+          fecha: "",
+          hora: "",
+          estado: "reservada",
+          notas: "",
+        });
+        setHorasDisponibles([]);
+        setShowForm(false);
+
+        // Guardar método elegido para el flujo post-cita
+        const metodoElegido = metodoPago;
+        setMetodoPago("efectivo");
+        setComprobante(null);
+        setComprobanteFile(null);
+
+        // Disparar flujo según método
+        if (metodoElegido === "efectivo" || !citaId) {
+          // Mostrar banner de éxito
+          setPasoPostCita({
+            tipo: "efectivo",
+            citaId,
+            metodo: metodoElegido,
+            servicioId: formData.servicio_id,
+          });
+        } else {
+          // Mostrar modal para subir comprobante
+          setPasoPostCita({
+            tipo: "pago",
+            citaId,
+            metodo: metodoElegido,
+            servicioId: formData.servicio_id,
+          });
+        }
+      }
     } catch (error) {
       console.error(error);
       alert(
@@ -472,6 +459,49 @@ function Citas() {
     setMetodoPago("efectivo");
     setComprobante(null);
     setComprobanteFile(null);
+  };
+
+  // Subir comprobante desde el modal post-creación de cita
+  const handleSubirComprobanteModal = async () => {
+    if (!pasoPostCita) return;
+    setLoadingPago(true);
+    try {
+      const servicio = servicios.find(
+        (s) => s.id === parseInt(pasoPostCita.servicioId),
+      );
+      const formPago = new FormData();
+      formPago.append("id_cita", pasoPostCita.citaId);
+      formPago.append("id_usuario", currentUser.id);
+      formPago.append("monto", parseFloat(servicio?.precio || 0));
+      formPago.append("metodo", pasoPostCita.metodo);
+      if (comprobanteFile)
+        formPago.append("comprobante", comprobanteFile, comprobanteFile.name);
+
+      const res = await fetch(`${API_URL}/pagos`, {
+        method: "POST",
+        body: formPago,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(
+          "⚠️ Error al enviar el comprobante: " + (err.error || "desconocido"),
+        );
+        return;
+      }
+
+      setPasoPostCita(null);
+      setComprobante(null);
+      setComprobanteFile(null);
+      await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null);
+      alert("✅ Comprobante enviado. El admin revisará tu pago pronto.");
+    } catch {
+      alert(
+        "⚠️ No se pudo enviar el comprobante. Puedes intentarlo más tarde desde Pagos.",
+      );
+    } finally {
+      setLoadingPago(false);
+    }
   };
 
   const handleLogout = () => {
@@ -854,48 +884,14 @@ function Citas() {
                     metodoPago === "tarjeta" ||
                     metodoPago === "nequi" ||
                     metodoPago === "daviplata") && (
-                    <div className="space-y-3">
-                      <div className="bg-green-50 border border-green-300 rounded-xl p-4">
-                        <p className="text-sm font-bold text-green-800 mb-1">
-                          📲 Nequi — Barbería K-19
-                        </p>
-                        <p className="text-2xl font-extrabold text-green-700 tracking-widest">
-                          320 732 8557
-                        </p>
-                        <p className="text-xs text-green-600 mt-1">
-                          Envía el valor exacto del servicio y adjunta el
-                          comprobante abajo.
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          📎 Comprobante de pago{" "}
-                          <span className="text-red-500">*obligatorio</span>
-                          {comprobante && (
-                            <span className="text-green-600 ml-2">
-                              ✅ Adjunto
-                            </span>
-                          )}
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={handleComprobanteChange}
-                          required
-                          className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-100 file:text-violet-700 hover:file:bg-violet-200 transition"
-                        />
-                        {comprobante &&
-                          comprobante.startsWith("data:image") && (
-                            <img
-                              src={comprobante}
-                              alt="Comprobante"
-                              className="mt-2 max-h-40 rounded-lg border object-contain"
-                            />
-                          )}
-                        <p className="mt-1 text-xs text-gray-400">
-                          Imágenes (JPG, PNG) o PDF · Máx. 5 MB
-                        </p>
-                      </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                      <p className="font-semibold mb-1">
+                        📲 Pago digital seleccionado
+                      </p>
+                      <p>
+                        Tras crear la cita se abrirá un paso adicional para que
+                        subas el comprobante de tu transferencia/Nequi.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -904,13 +900,7 @@ function Citas() {
               <div className="flex flex-col sm:flex-row gap-3 sm:space-x-4">
                 <button
                   type="submit"
-                  disabled={
-                    loadingPago ||
-                    (currentUser?.rol !== "admin" &&
-                      !editId &&
-                      metodoPago !== "efectivo" &&
-                      !comprobante)
-                  }
+                  disabled={loadingPago}
                   className="flex-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 text-white py-3 px-6 rounded-lg font-bold hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 transition transform hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loadingPago
@@ -1155,6 +1145,125 @@ function Citas() {
           </div>
         </div>
       </div>
+
+      {/* ===== MODAL / BANNER POST-CREACIÓN DE CITA ===== */}
+      {pasoPostCita && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
+            {/* Banner efectivo */}
+            {pasoPostCita.tipo === "efectivo" && (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-4xl">✅</span>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">
+                      ¡Cita reservada!
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Tu cita quedó agendada correctamente.
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+                  <p className="text-amber-800 font-semibold text-sm">
+                    💵 Pagarás en efectivo el día de la cita en la barbería.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPasoPostCita(null)}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-xl font-bold hover:from-emerald-600 hover:to-teal-700 transition"
+                >
+                  Entendido
+                </button>
+              </>
+            )}
+
+            {/* Modal para subir comprobante */}
+            {pasoPostCita.tipo === "pago" && (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-4xl">📤</span>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">
+                      Sube tu comprobante
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Cita creada · ahora registra el pago
+                    </p>
+                  </div>
+                </div>
+
+                {/* Info de cuenta Nequi */}
+                <div className="bg-green-50 border border-green-300 rounded-xl p-4 mb-4">
+                  <p className="text-sm font-bold text-green-800 mb-1">
+                    📲 Nequi — Barbería K-19
+                  </p>
+                  <p className="text-2xl font-extrabold text-green-700 tracking-widest">
+                    320 732 8557
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Método seleccionado:{" "}
+                    <span className="font-semibold capitalize">
+                      {pasoPostCita.metodo}
+                    </span>
+                  </p>
+                </div>
+
+                {/* File input */}
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    📎 Comprobante de pago{" "}
+                    {comprobante && (
+                      <span className="text-green-600 ml-1">✅ Adjunto</span>
+                    )}
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={handleComprobanteChange}
+                    className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-100 file:text-violet-700 hover:file:bg-violet-200 transition"
+                  />
+                  {comprobante && comprobante.startsWith("data:image") && (
+                    <img
+                      src={comprobante}
+                      alt="Comprobante"
+                      className="mt-2 max-h-40 rounded-lg border object-contain"
+                    />
+                  )}
+                  <p className="mt-1 text-xs text-gray-400">
+                    JPG, PNG o PDF · Máx. 5 MB
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSubirComprobanteModal}
+                    disabled={loadingPago || !comprobanteFile}
+                    className="flex-1 bg-gradient-to-r from-violet-500 to-purple-600 text-white py-3 rounded-xl font-bold hover:from-violet-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingPago ? "⏳ Enviando..." : "📤 Enviar comprobante"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPasoPostCita(null);
+                      setComprobante(null);
+                      setComprobanteFile(null);
+                    }}
+                    disabled={loadingPago}
+                    className="px-4 py-3 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold hover:bg-gray-50 transition disabled:opacity-50"
+                  >
+                    Después
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 text-center mt-2">
+                  Puedes subir el comprobante más tarde desde la sección{" "}
+                  <strong>Pagos</strong>.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
