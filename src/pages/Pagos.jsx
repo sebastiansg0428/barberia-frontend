@@ -689,6 +689,14 @@ function Pagos() {
         getPagoStats(user.id),
         getNotificaciones(user.id),
       ]).finally(() => setLoading(false));
+
+      // Polling: refrescar comprobantes pendientes + citas cada 30 segundos
+      const intervalo = setInterval(() => {
+        getPagosPendientes();
+        getCitas();
+        getNotificaciones(user.id);
+      }, 30_000);
+      return () => clearInterval(intervalo);
     } else {
       Promise.all([
         getMisPagos(user.id),
@@ -714,20 +722,24 @@ function Pagos() {
       const esPendiente = c.estado_pago === "pendiente_aprobacion";
       const yaEsta = base.some((p) => p.id === c.id_pago);
       if (c.id_pago && esPendiente && esDigital && !yaEsta) {
+        // Buscar en pagos (GET /pagos) para obtener comprobante_url real
+        const pagoCompleto = pagos.find((p) => p.id === c.id_pago);
         // Construir objeto pago desde los campos JOIN de cita
-        base.push({
-          id: c.id_pago,
-          id_cita: c.id,
-          monto: c.precio,
-          metodo: c.metodo_pago,
-          estado: c.estado_pago,
-          nombre_cliente: c.nombre_usuario,
-          nombre_servicio: c.nombre_servicio,
-          fecha_cita: c.fecha_hora,
-          estado_cita: c.estado,
-          comprobante: null,
-          comprobante_url: null,
-        });
+        base.push(
+          pagoCompleto || {
+            id: c.id_pago,
+            id_cita: c.id,
+            monto: c.precio,
+            metodo: c.metodo_pago,
+            estado: c.estado_pago,
+            nombre_cliente: c.nombre_usuario,
+            nombre_servicio: c.nombre_servicio,
+            fecha_cita: c.fecha_hora,
+            estado_cita: c.estado,
+            comprobante: null,
+            comprobante_url: null,
+          },
+        );
       }
     });
     return base;
@@ -1140,11 +1152,33 @@ function Pagos() {
             )}
 
             {/* Comprobantes por revisar */}
-            {pendientesAprobacion.length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-5">
-                <h3 className="text-lg font-bold text-yellow-800 mb-4">
-                  Comprobantes por revisar ({pendientesAprobacion.length})
+            <div
+              className={`border rounded-xl p-5 ${pendientesAprobacion.length > 0 ? "bg-yellow-50 border-yellow-300" : "bg-gray-50 border-gray-200"}`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3
+                  className={`text-lg font-bold ${pendientesAprobacion.length > 0 ? "text-yellow-800" : "text-gray-500"}`}
+                >
+                  {pendientesAprobacion.length > 0
+                    ? `⏳ Comprobantes por revisar (${pendientesAprobacion.length})`
+                    : "✅ Sin comprobantes pendientes"}
                 </h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">
+                    Auto-actualiza cada 30s
+                  </span>
+                  <button
+                    onClick={() => {
+                      getPagosPendientes();
+                      getCitas();
+                    }}
+                    className="text-xs bg-white hover:bg-gray-100 border border-gray-300 text-gray-600 px-3 py-1.5 rounded-lg font-semibold transition"
+                  >
+                    🔄 Actualizar ahora
+                  </button>
+                </div>
+              </div>
+              {pendientesAprobacion.length > 0 && (
                 <div className="space-y-3">
                   {pendientesAprobacion.map((pago) => (
                     <div
@@ -1237,8 +1271,8 @@ function Pagos() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Cobros pendientes */}
             {citasSinPago.length > 0 && (
