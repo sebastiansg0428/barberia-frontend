@@ -17,14 +17,15 @@ function Citas() {
   const [loadingHoras, setLoadingHoras] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [metodoPago, setMetodoPago] = useState("efectivo");
-  const [comprobante, setComprobante] = useState(null);
+  const [comprobante, setComprobante] = useState(null); // base64 para preview
+  const [comprobanteFile, setComprobanteFile] = useState(null); // File para FormData
   const [loadingPago, setLoadingPago] = useState(false);
   const [formData, setFormData] = useState({
     usuario_id: "",
     servicio_id: "",
     fecha: "",
     hora: "",
-    estado: "pendiente",
+    estado: "reservada",
     notas: "",
   });
 
@@ -32,6 +33,7 @@ function Citas() {
     const file = e.target.files[0];
     if (!file) {
       setComprobante(null);
+      setComprobanteFile(null);
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -39,6 +41,9 @@ function Citas() {
       e.target.value = "";
       return;
     }
+    // Guardar el File original para enviarlo con FormData
+    setComprobanteFile(file);
+    // Guardar base64 solo para mostrar la preview
     const reader = new FileReader();
     reader.onloadend = () => setComprobante(reader.result);
     reader.readAsDataURL(file);
@@ -194,9 +199,9 @@ function Citas() {
       // Construir el objeto para el backend
       const dataToSubmit = {
         id_usuario: formData.usuario_id || currentUser.id,
-        id_servicio: formData.servicio_id,
+        servicios: [parseInt(formData.servicio_id)],
         fecha_hora: fechaHora,
-        estado: formData.estado || "pendiente",
+        estado: formData.estado || "reservada",
         notas: formData.notas,
       };
 
@@ -263,33 +268,52 @@ function Citas() {
         // Si eligió transferencia o tarjeta, registrar el pago con comprobante
         if (metodoPago !== "efectivo") {
           const citaId = citaCreada?.cita?.id || citaCreada?.id;
-          if (citaId && comprobante) {
+          if (citaId) {
             setLoadingPago(true);
             try {
               const servicio = servicios.find(
                 (s) => s.id === parseInt(formData.servicio_id),
               );
-              await fetch(`${API_URL}/pagos`, {
+              const formPago = new FormData();
+              formPago.append("id_cita", citaId);
+              formPago.append("id_usuario", currentUser.id);
+              formPago.append("monto", parseFloat(servicio?.precio || 0));
+              formPago.append("metodo", metodoPago);
+              if (comprobanteFile)
+                formPago.append(
+                  "comprobante",
+                  comprobanteFile,
+                  comprobanteFile.name,
+                );
+
+              const resPago = await fetch(`${API_URL}/pagos`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  id_cita: citaId,
-                  id_usuario: currentUser.id,
-                  monto: parseFloat(servicio?.precio || 0),
-                  metodo: metodoPago,
-                  comprobante: comprobante,
-                  fecha_pago: new Date().toISOString().split("T")[0],
-                }),
+                body: formPago, // sin Content-Type: el navegador pone el boundary automático
               });
+
+              if (!resPago.ok) {
+                const err = await resPago.json();
+                alert(
+                  "⚠️ Cita creada pero hubo un error al enviar el comprobante: " +
+                    (err.error || "desconocido"),
+                );
+              } else {
+                alert(
+                  "✅ Cita creada y comprobante enviado. El admin revisará tu pago.",
+                );
+              }
             } catch {
-              /* silencioso, el admin puede registrar manual */
+              alert(
+                "✅ Cita creada. No se pudo enviar el comprobante, puedes intentarlo más tarde.",
+              );
             } finally {
               setLoadingPago(false);
             }
+          } else {
+            alert(
+              "✅ Cita creada y comprobante enviado. El admin revisará tu pago.",
+            );
           }
-          alert(
-            "✅ Cita creada y comprobante enviado. El admin revisará tu pago.",
-          );
         } else {
           alert(
             "✅ Cita creada exitosamente. Recuerda pagar en efectivo el día de tu cita.",
@@ -303,11 +327,14 @@ function Citas() {
         servicio_id: "",
         fecha: "",
         hora: "",
-        estado: "pendiente",
+        estado: "reservada",
         notas: "",
       });
       setHorasDisponibles([]);
       setShowForm(false);
+      setMetodoPago("efectivo");
+      setComprobante(null);
+      setComprobanteFile(null);
     } catch (error) {
       console.error(error);
       alert(
@@ -378,8 +405,8 @@ function Citas() {
   // Cambia el estado de una cita sin abrir el formulario
   const handleCambiarEstado = async (id, nuevoEstado) => {
     const mensajes = {
+      reservada: "¿Marcar esta cita como reservada?",
       confirmada: "¿Confirmar esta cita?",
-      completada: "¿Marcar esta cita como completada?",
       cancelada: "¿Cancelar esta cita?",
     };
     if (!window.confirm(mensajes[nuevoEstado] || "¿Cambiar estado?")) return;
@@ -390,22 +417,9 @@ function Citas() {
         body: JSON.stringify({ estado: nuevoEstado }),
       });
       if (!response.ok) {
-        // Si no existe el endpoint PATCH /estado, intentar con PUT completo
-        const cita = citas.find((c) => c.id === id);
-        if (cita) {
-          const fechaHora = cita.fecha_hora?.replace("T", " ").substring(0, 19);
-          await fetch(`${API_URL}/citas/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id_usuario: cita.id_usuario,
-              id_servicio: cita.id_servicio,
-              fecha_hora: fechaHora,
-              estado: nuevoEstado,
-              notas: cita.notas || "",
-            }),
-          });
-        }
+        const e = await response.json();
+        alert("❌ Error: " + (e.error || "desconocido"));
+        return;
       }
       setCitas((prev) =>
         prev.map((c) => (c.id === id ? { ...c, estado: nuevoEstado } : c)),
@@ -416,13 +430,40 @@ function Citas() {
     }
   };
 
+  // Marca la cita como completada (servicio prestado) usando el endpoint dedicado
+  const handleCompletarCita = async (id) => {
+    if (
+      !window.confirm(
+        "¿Marcar esta cita como completada? El servicio fue prestado.",
+      )
+    )
+      return;
+    try {
+      const response = await fetch(`${API_URL}/citas/${id}/completar`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) {
+        const e = await response.json();
+        alert("❌ Error: " + (e.error || "desconocido"));
+        return;
+      }
+      setCitas((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, estado: "completada" } : c)),
+      );
+    } catch (error) {
+      console.error(error);
+      alert("❌ Error al completar la cita");
+    }
+  };
+
   const handleCancelForm = () => {
     setFormData({
       usuario_id: "",
       servicio_id: "",
       fecha: "",
       hora: "",
-      estado: "pendiente",
+      estado: "reservada",
       notas: "",
     });
     setHorasDisponibles([]);
@@ -430,6 +471,7 @@ function Citas() {
     setShowForm(false);
     setMetodoPago("efectivo");
     setComprobante(null);
+    setComprobanteFile(null);
   };
 
   const handleLogout = () => {
@@ -662,7 +704,10 @@ function Citas() {
                     name="fecha"
                     type="date"
                     required
-                    min={new Date().toISOString().split("T")[0]}
+                    min={(() => {
+                      const h = new Date();
+                      return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}-${String(h.getDate()).padStart(2, "0")}`;
+                    })()}
                     value={formData.fecha}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
@@ -731,7 +776,8 @@ function Citas() {
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                     >
-                      <option value="pendiente">Pendiente</option>
+                      <option value="reservada">Reservada</option>
+                      <option value="confirmada">Confirmada</option>
                       <option value="completada">Completada</option>
                       <option value="cancelada">Cancelada</option>
                     </select>
@@ -763,14 +809,21 @@ function Citas() {
                   <p className="text-sm font-bold text-violet-700 mb-3">
                     💳 Método de Pago
                   </p>
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    {["efectivo", "transferencia", "tarjeta"].map((m) => (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                    {[
+                      "efectivo",
+                      "transferencia",
+                      "tarjeta",
+                      "nequi",
+                      "daviplata",
+                    ].map((m) => (
                       <button
                         key={m}
                         type="button"
                         onClick={() => {
                           setMetodoPago(m);
                           setComprobante(null);
+                          setComprobanteFile(null);
                         }}
                         className={`py-2 px-3 rounded-lg text-sm font-semibold border-2 capitalize transition ${
                           metodoPago === m
@@ -782,7 +835,11 @@ function Citas() {
                           ? "💵 Efectivo"
                           : m === "transferencia"
                             ? "🏦 Transferencia"
-                            : "💳 Tarjeta"}
+                            : m === "nequi"
+                              ? "🟣 Nequi"
+                              : m === "daviplata"
+                                ? "🔴 Daviplata"
+                                : "💳 Tarjeta"}
                       </button>
                     ))}
                   </div>
@@ -794,7 +851,9 @@ function Citas() {
                   )}
 
                   {(metodoPago === "transferencia" ||
-                    metodoPago === "tarjeta") && (
+                    metodoPago === "tarjeta" ||
+                    metodoPago === "nequi" ||
+                    metodoPago === "daviplata") && (
                     <div className="space-y-3">
                       <div className="bg-green-50 border border-green-300 rounded-xl p-4">
                         <p className="text-sm font-bold text-green-800 mb-1">
@@ -896,6 +955,9 @@ function Citas() {
                   <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
                   </th>
+                  <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Pago
+                  </th>
                   <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
@@ -905,7 +967,7 @@ function Citas() {
                 {citas.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="px-6 py-8 text-center text-gray-500"
                     >
                       No hay citas disponibles. ¡Crea la primera!
@@ -963,27 +1025,81 @@ function Citas() {
                               ? "bg-blue-100 text-blue-800"
                               : cita.estado === "cancelada"
                                 ? "bg-red-100 text-red-800"
-                                : "bg-yellow-100 text-yellow-800"
+                                : cita.estado === "confirmada"
+                                  ? "bg-green-100 text-green-800"
+                                  : cita.estado === "reservada"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-yellow-100 text-yellow-800"
                           }`}
                         >
-                          {cita.estado === "pendiente" && "⏳ Pendiente"}
+                          {cita.estado === "reservada" && "📋 Reservada"}
+                          {cita.estado === "confirmada" && "✅ Confirmada"}
                           {cita.estado === "completada" && "💈 Completada"}
                           {cita.estado === "cancelada" && "❌ Cancelada"}
+                          {cita.estado !== "reservada" &&
+                            cita.estado !== "confirmada" &&
+                            cita.estado !== "completada" &&
+                            cita.estado !== "cancelada" &&
+                            cita.estado}
                         </span>
+                      </td>
+                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                        {(() => {
+                          const ep = cita.estado_pago;
+                          if (!ep)
+                            return (
+                              <span className="px-2 py-1 bg-gray-100 text-gray-400 rounded-full text-xs">
+                                💳 Pendiente de pago
+                              </span>
+                            );
+                          if (ep === "pendiente_aprobacion")
+                            return (
+                              <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
+                                ⏳ En revisión
+                              </span>
+                            );
+                          if (ep === "completado")
+                            return (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                                ✅ Pagado
+                              </span>
+                            );
+                          if (ep === "rechazado")
+                            return (
+                              <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                                ❌ Rechazado
+                              </span>
+                            );
+                          return (
+                            <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs capitalize">
+                              {ep}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex flex-col sm:flex-row gap-2">
                           {currentUser?.rol === "admin" ? (
                             <>
-                              {/* Acción rápida según estado */}
-                              {cita.estado === "pendiente" && (
+                              {/* Completar: si está confirmada o reservada (usa PUT /completar) */}
+                              {(cita.estado === "confirmada" ||
+                                cita.estado === "reservada") && (
                                 <button
-                                  onClick={() =>
-                                    handleCambiarEstado(cita.id, "completada")
-                                  }
+                                  onClick={() => handleCompletarCita(cita.id)}
                                   className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
                                 >
                                   💈 Completar
+                                </button>
+                              )}
+                              {/* Confirmar: si está reservada */}
+                              {cita.estado === "reservada" && (
+                                <button
+                                  onClick={() =>
+                                    handleCambiarEstado(cita.id, "confirmada")
+                                  }
+                                  className="bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                >
+                                  ✅ Confirmar
                                 </button>
                               )}
                               {cita.estado === "completada" && (
