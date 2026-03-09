@@ -120,6 +120,8 @@ function Pagos() {
     ],
     notas: "",
   });
+  // Comprobantes por índice de método digital: { 1: File, ... }
+  const [comprobantesMixto, setComprobantesMixto] = useState({});
 
   /* ========== FETCH ADMIN ========== */
   const getPagos = async (params = {}) => {
@@ -315,9 +317,24 @@ function Pagos() {
 
   const handleSubmitMixto = async (e) => {
     e.preventDefault();
+    const METODOS_DIGITALES = [
+      "transferencia",
+      "nequi",
+      "daviplata",
+      "tarjeta",
+    ];
+    const limpiarMonto = (v) =>
+      // Solo elimina puntos de miles (seguidos de exactamente 3 dígitos)
+      // "20.000" → 20000 ✅  |  "4.91" → 4.91 ✅  |  "1.000.000" → 1000000 ✅
+      parseFloat(
+        String(v)
+          .replace(/\.(?=\d{3}(?:\.|$))/g, "")
+          .replace(",", "."),
+      ) || 0;
     const pagosValidos = formMixto.pagos.filter(
-      (p) => p.monto && parseFloat(p.monto) > 0,
+      (p) => p.monto && limpiarMonto(p.monto) > 0,
     );
+    // Validar que todos los montos válidos sumen algo
     if (pagosValidos.length < 2) {
       alert("⚠️ Ingresa monto en al menos 2 métodos de pago.");
       return;
@@ -328,18 +345,17 @@ function Pagos() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id_cita: parseInt(formMixto.id_cita),
-          id_usuario: currentUser.id,
+          id_admin: currentUser.id,
+          admin_note: formMixto.notas || "",
           pagos: pagosValidos.map((p) => ({
             metodo: p.metodo,
-            monto: parseFloat(p.monto),
+            monto: limpiarMonto(p.monto),
           })),
-          notas: formMixto.notas,
-          fecha_pago: new Date().toISOString().split("T")[0],
         }),
       });
       if (!res.ok) {
-        const e = await res.json();
-        alert("Error: " + (e.error || "desconocido"));
+        const err = await res.json();
+        alert("Error: " + (err.error || "desconocido"));
         return;
       }
       alert("✅ Pago mixto registrado exitosamente");
@@ -351,6 +367,7 @@ function Pagos() {
         ],
         notas: "",
       });
+      setComprobantesMixto({});
       setShowFormMixto(false);
       await refrescarAdmin();
     } catch {
@@ -486,33 +503,31 @@ function Pagos() {
   };
 
   const handleCompletarYCobrar = async (cita) => {
+    // Usar saldo pendiente si está disponible (con pagos parciales previos)
+    const saldo =
+      cita.saldo_pendiente !== undefined && cita.saldo_pendiente !== null
+        ? parseFloat(cita.saldo_pendiente)
+        : parseFloat(cita.precio || 0);
+
     if (
       !window.confirm(
-        `¿Completar la cita y registrar pago en efectivo de $${fmtMonto(cita.precio)} para ${cita.nombre_usuario || "cliente"}?`,
+        `¿Registrar cobro en efectivo de $${fmtMonto(saldo)} para ${cita.nombre_usuario || "cliente"}?${
+          saldo < parseFloat(cita.precio || 0)
+            ? `\n(Precio total: $${fmtMonto(cita.precio)} — saldo restante: $${fmtMonto(saldo)})`
+            : ""
+        }`,
       )
     )
       return;
     try {
-      // 1. Marcar la cita como completada solo si aún no lo está
-      if (cita.estado !== "completada") {
-        const resCita = await fetch(`${API_URL}/citas/${cita.id}/completar`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-        });
-        if (!resCita.ok) {
-          const e = await resCita.json();
-          alert("Error al completar cita: " + (e.error || "desconocido"));
-          return;
-        }
-      }
-      // 2. Registrar el pago en efectivo
       const resPago = await fetch(`${API_URL}/admin/pagos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id_cita: cita.id,
           id_admin: currentUser.id,
-          monto_recibido: parseFloat(cita.precio || 0),
+          monto_recibido: saldo,
+          metodo: "efectivo",
         }),
       });
       if (!resPago.ok) {
@@ -520,7 +535,7 @@ function Pagos() {
         alert("Error al registrar pago: " + (e.error || "desconocido"));
         return;
       }
-      alert("✅ Cita completada y pago registrado exitosamente");
+      alert("✅ Pago registrado exitosamente");
       await refrescarAdmin();
     } catch {
       alert("Error de conexion");
@@ -568,26 +583,32 @@ function Pagos() {
     )
       return;
 
-    let montoRecibido = parseFloat(cita.precio || 0);
+    // Usar saldo pendiente si hay pagos parciales previos
+    const saldoPendiente =
+      cita.saldo_pendiente !== undefined && cita.saldo_pendiente !== null
+        ? parseFloat(cita.saldo_pendiente)
+        : parseFloat(cita.precio || 0);
+
+    let montoRecibido = saldoPendiente;
     let cambio = 0;
 
     if (esEfectivo) {
+      const hint =
+        saldoPendiente < parseFloat(cita.precio || 0)
+          ? `Precio total: $${fmtMonto(cita.precio)} | Ya abonado: $${fmtMonto(parseFloat(cita.precio || 0) - saldoPendiente)}\nSaldo pendiente: $${fmtMonto(saldoPendiente)}`
+          : `Servicio: $${fmtMonto(cita.precio)}`;
       const montoRecibidoStr = window.prompt(
-        `💵 ¿Cuánto dinero recibiste del cliente?\n(Servicio: $${fmtMonto(cita.precio)})`,
-        cita.precio,
+        `💵 ¿Cuánto dinero recibiste del cliente?\n${hint}`,
+        saldoPendiente,
       );
       if (montoRecibidoStr === null) return;
       montoRecibido = parseFloat(montoRecibidoStr);
-      if (
-        isNaN(montoRecibido) ||
-        montoRecibido < parseFloat(cita.precio || 0)
-      ) {
-        alert(
-          "⚠️ El monto recibido no puede ser menor al precio del servicio.",
-        );
+      if (isNaN(montoRecibido) || montoRecibido <= 0) {
+        alert("⚠️ Ingresa un monto válido.");
         return;
       }
-      cambio = montoRecibido - parseFloat(cita.precio || 0);
+      cambio =
+        montoRecibido > saldoPendiente ? montoRecibido - saldoPendiente : 0;
     }
 
     try {
@@ -614,7 +635,7 @@ function Pagos() {
       alert(
         esEfectivo && cambio > 0
           ? `✅ Pago registrado. Cambio: $${fmtMonto(cambio)}`
-          : `✅ Pago por ${metodoLabel} registrado: $${fmtMonto(cita.precio)}`,
+          : `✅ Pago por ${metodoLabel} registrado: $${fmtMonto(montoRecibido)}`,
       );
       await refrescarAdmin();
     } catch {
@@ -1769,60 +1790,120 @@ function Pagos() {
                     <label className="block text-sm font-semibold text-gray-700">
                       Métodos de pago
                     </label>
-                    {formMixto.pagos.map((p, i) => (
-                      <div key={i} className="flex gap-3 items-center">
-                        <select
-                          value={p.metodo}
-                          onChange={(e) => {
-                            const updated = [...formMixto.pagos];
-                            updated[i] = {
-                              ...updated[i],
-                              metodo: e.target.value,
-                            };
-                            setFormMixto({ ...formMixto, pagos: updated });
-                          }}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="efectivo">💵 Efectivo</option>
-                          <option value="transferencia">
-                            🏦 Transferencia
-                          </option>
-                          <option value="nequi">🟣 Nequi</option>
-                          <option value="daviplata">🔴 Daviplata</option>
-                          <option value="tarjeta">💳 Tarjeta</option>
-                        </select>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="Monto"
-                          value={p.monto}
-                          onChange={(e) => {
-                            const updated = [...formMixto.pagos];
-                            updated[i] = {
-                              ...updated[i],
-                              monto: e.target.value,
-                            };
-                            setFormMixto({ ...formMixto, pagos: updated });
-                          }}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                        />
-                        {formMixto.pagos.length > 2 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = formMixto.pagos.filter(
-                                (_, idx) => idx !== i,
-                              );
-                              setFormMixto({ ...formMixto, pagos: updated });
-                            }}
-                            className="text-red-400 hover:text-red-600 font-bold text-xl"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                    {formMixto.pagos.map((p, i) => {
+                      const esDigital = [
+                        "transferencia",
+                        "nequi",
+                        "daviplata",
+                        "tarjeta",
+                      ].includes(p.metodo);
+                      const tieneComprobante = !!comprobantesMixto[i];
+                      return (
+                        <div key={i} className="space-y-2">
+                          <div className="flex gap-3 items-center">
+                            <select
+                              value={p.metodo}
+                              onChange={(e) => {
+                                const updated = [...formMixto.pagos];
+                                updated[i] = {
+                                  ...updated[i],
+                                  metodo: e.target.value,
+                                };
+                                setFormMixto({ ...formMixto, pagos: updated });
+                                // limpiar comprobante si cambia a efectivo
+                                setComprobantesMixto((prev) => {
+                                  const next = { ...prev };
+                                  delete next[i];
+                                  return next;
+                                });
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="efectivo">💵 Efectivo</option>
+                              <option value="transferencia">
+                                🏦 Transferencia
+                              </option>
+                              <option value="nequi">🟣 Nequi</option>
+                              <option value="daviplata">🔴 Daviplata</option>
+                              <option value="tarjeta">💳 Tarjeta</option>
+                            </select>
+                            <input
+                              type="text"
+                              placeholder="Monto (ej: 20.000)"
+                              value={p.monto}
+                              onChange={(e) => {
+                                const updated = [...formMixto.pagos];
+                                updated[i] = {
+                                  ...updated[i],
+                                  monto: e.target.value,
+                                };
+                                setFormMixto({ ...formMixto, pagos: updated });
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                            />
+                            {formMixto.pagos.length > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = formMixto.pagos.filter(
+                                    (_, idx) => idx !== i,
+                                  );
+                                  setFormMixto({
+                                    ...formMixto,
+                                    pagos: updated,
+                                  });
+                                  setComprobantesMixto((prev) => {
+                                    const next = { ...prev };
+                                    delete next[i];
+                                    return next;
+                                  });
+                                }}
+                                className="text-red-400 hover:text-red-600 font-bold text-xl"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                          {/* Comprobante obligatorio para métodos digitales */}
+                          {esDigital && (
+                            <div className="ml-1 pl-3 border-l-2 border-violet-300">
+                              <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                📎 Comprobante {p.metodo}{" "}
+                                <span className="text-red-500">
+                                  *obligatorio
+                                </span>
+                                {tieneComprobante && (
+                                  <span className="text-green-600 ml-2">
+                                    ✅ Adjunto
+                                  </span>
+                                )}
+                              </label>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (!file) return;
+                                  if (file.size > 5 * 1024 * 1024) {
+                                    alert("⚠️ El archivo supera los 5MB");
+                                    e.target.value = "";
+                                    return;
+                                  }
+                                  setComprobantesMixto((prev) => ({
+                                    ...prev,
+                                    [i]: file,
+                                  }));
+                                }}
+                                className="w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-100 file:text-violet-700 hover:file:bg-violet-200 transition"
+                              />
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                JPG, PNG o PDF · Máx. 5 MB
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                     <button
                       type="button"
                       onClick={() =>
@@ -1862,7 +1943,10 @@ function Pagos() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowFormMixto(false)}
+                      onClick={() => {
+                        setShowFormMixto(false);
+                        setComprobantesMixto({});
+                      }}
                       className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 rounded-lg font-bold transition"
                     >
                       Cancelar

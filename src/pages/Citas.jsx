@@ -23,6 +23,7 @@ function Citas() {
   // pasoPostCita: estado del flujo de pago post-creación
   // { tipo: "efectivo" | "pago", citaId, metodo, servicioId }
   const [pasoPostCita, setPasoPostCita] = useState(null);
+  const [montoModal, setMontoModal] = useState(""); // monto parcial del comprobante
   const [formData, setFormData] = useState({
     usuario_id: "",
     servicio_id: "",
@@ -54,17 +55,29 @@ function Citas() {
 
   const getCitas = async (userId = null) => {
     try {
-      const response = await fetch(`${API_URL}/citas`);
+      // Clientes usan el endpoint dedicado que retorna saldo_pendiente,
+      // motivo_rechazo, barbero asignado y estado_pago desde el backend
+      const url = userId
+        ? `${API_URL}/mis-citas?id_usuario=${userId}`
+        : `${API_URL}/citas`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error("Error al obtener citas");
       const data = await response.json();
-      let citasData = Array.isArray(data.citas) ? data.citas : [];
-      // Si es cliente, filtrar solo sus citas
-      if (userId) {
-        citasData = citasData.filter(
-          (c) => Number(c.id_usuario) === Number(userId),
-        );
-      }
-      setCitas(citasData);
+      setCitas(Array.isArray(data.citas) ? data.citas : []);
+    } catch (error) {
+      console.error(error);
+      setCitas([]);
+    }
+  };
+
+  const getCitasBarbero = async (barberoId) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/barbero/citas?id_barbero=${barberoId}`,
+      );
+      if (!response.ok) throw new Error("Error al obtener citas del barbero");
+      const data = await response.json();
+      setCitas(Array.isArray(data.citas) ? data.citas : []);
     } catch (error) {
       console.error(error);
       setCitas([]);
@@ -467,10 +480,22 @@ function Citas() {
       const servicio = servicios.find(
         (s) => s.id === parseInt(pasoPostCita.servicioId),
       );
+      const precioTotal = parseFloat(servicio?.precio || 0);
+      // Si el cliente ingresó un monto parcial, usarlo; si no, el precio completo
+      const limpiarMonto = (v) =>
+        parseFloat(
+          String(v)
+            .replace(/\.(?=\d{3}(?:\.|$))/g, "")
+            .replace(",", "."),
+        ) || 0;
+      const montoEnviar = montoModal.trim()
+        ? limpiarMonto(montoModal)
+        : precioTotal;
+
       const formPago = new FormData();
       formPago.append("id_cita", pasoPostCita.citaId);
       formPago.append("id_usuario", currentUser.id);
-      formPago.append("monto", parseFloat(servicio?.precio || 0));
+      formPago.append("monto", montoEnviar);
       formPago.append("metodo", pasoPostCita.metodo);
       if (comprobanteFile)
         formPago.append("comprobante", comprobanteFile, comprobanteFile.name);
@@ -491,6 +516,7 @@ function Citas() {
       setPasoPostCita(null);
       setComprobante(null);
       setComprobanteFile(null);
+      setMontoModal("");
       await getCitas(currentUser?.rol === "cliente" ? currentUser.id : null);
       alert("✅ Comprobante enviado. El admin revisará tu pago pronto.");
     } catch {
@@ -514,10 +540,16 @@ function Citas() {
       return;
     }
     setCurrentUser(user);
-    const userId = user.rol === "cliente" ? user.id : null;
-    Promise.all([getCitas(userId), getUsuarios(), getServicios()]).finally(() =>
-      setLoading(false),
-    );
+    if (user.rol === "barbero") {
+      Promise.all([getCitasBarbero(user.id), getServicios()]).finally(() =>
+        setLoading(false),
+      );
+    } else {
+      const userId = user.rol === "cliente" ? user.id : null;
+      Promise.all([getCitas(userId), getUsuarios(), getServicios()]).finally(
+        () => setLoading(false),
+      );
+    }
   }, [navigate]);
 
   // Detectar si viene del botón "Agendar" de servicios
@@ -644,24 +676,28 @@ function Citas() {
                 📅{" "}
                 {currentUser?.rol === "admin"
                   ? "Gestión de Citas"
-                  : "Mis Citas"}
+                  : currentUser?.rol === "barbero"
+                    ? "Mi Agenda"
+                    : "Mis Citas"}
               </h1>
               <p className="text-gray-600 text-base sm:text-lg">
                 Total de citas:{" "}
                 <span className="font-bold text-teal-600">{citas.length}</span>
               </p>
             </div>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:from-cyan-600 hover:via-teal-600 hover:to-emerald-700 transform transition hover:scale-105 shadow-lg w-full sm:w-auto"
-            >
-              {showForm ? "✕ Cancelar" : "+ Nueva Cita"}
-            </button>
+            {currentUser?.rol !== "barbero" && (
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className="bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:from-cyan-600 hover:via-teal-600 hover:to-emerald-700 transform transition hover:scale-105 shadow-lg w-full sm:w-auto"
+              >
+                {showForm ? "✕ Cancelar" : "+ Nueva Cita"}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Formulario */}
-        {showForm && (
+        {/* Formulario — solo para admin y cliente */}
+        {showForm && currentUser?.rol !== "barbero" && (
           <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mb-6 sm:mb-8 border border-gray-100">
             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
               {editId ? "✏️ Editar Cita" : "➕ Crear Nueva Cita"}
@@ -922,224 +958,413 @@ function Citas() {
         {/* Tabla de Citas */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm sm:text-base">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ID
-                  </th>
-                  <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cliente
-                  </th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Servicio
-                  </th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Hora
-                  </th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pago
-                  </th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {citas.length === 0 ? (
+            {/* ===== VISTA BARBERO ===== */}
+            {currentUser?.rol === "barbero" ? (
+              <table className="min-w-full divide-y divide-gray-200 text-sm sm:text-base">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td
-                      colSpan="8"
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
-                      No hay citas disponibles. ¡Crea la primera!
-                    </td>
+                    <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ID
+                    </th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cliente
+                    </th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Servicio
+                    </th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fecha
+                    </th>
+                    <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Hora
+                    </th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Pago
+                    </th>
                   </tr>
-                ) : (
-                  citas.map((cita) => (
-                    <tr key={cita.id} className="hover:bg-gray-50">
-                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                        #{cita.id}
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {citas.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="7"
+                        className="px-6 py-12 text-center text-gray-400"
+                      >
+                        No tienes citas asignadas.
                       </td>
-                      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {cita.nombre_usuario ||
-                            getUsuarioNombre(cita.id_usuario)}
-                        </span>
-                      </td>
-                      <td className="px-4 sm:px-6 py-4">
-                        <span className="text-sm text-gray-600 font-semibold">
-                          {cita.nombre_servicio ||
-                            getServicioNombre(cita.id_servicio)}
-                        </span>
-                      </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
+                    </tr>
+                  ) : (
+                    citas.map((cita) => (
+                      <tr key={cita.id} className="hover:bg-gray-50">
+                        <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                          #{cita.id}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {cita.nombre_cliente ||
+                              cita.nombre_usuario ||
+                              "N/A"}
+                          </p>
+                          {cita.telefono_cliente && (
+                            <p className="text-xs text-gray-500">
+                              📞 {cita.telefono_cliente}
+                            </p>
+                          )}
+                          {cita.email_cliente && (
+                            <p className="text-xs text-gray-500">
+                              ✉️ {cita.email_cliente}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4">
+                          <span className="text-sm text-gray-700 font-semibold">
+                            {cita.nombre_servicio ||
+                              getServicioNombre(cita.id_servicio)}
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-900 font-semibold">
                             {cita.fecha_hora
                               ? cita.fecha_hora.split(" ")[0] ||
                                 cita.fecha_hora.substring(0, 10)
                               : "N/A"}
                           </span>
-                          <span className="sm:hidden text-xs font-bold text-teal-600">
+                          <span className="sm:hidden block text-xs font-bold text-teal-600">
+                            {cita.fecha_hora
+                              ? cita.fecha_hora.substring(11, 16)
+                              : ""}
+                          </span>
+                        </td>
+                        <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-bold text-teal-600">
+                            ⏰{" "}
+                            {cita.fecha_hora
+                              ? cita.fecha_hora.substring(11, 16)
+                              : ""}
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              cita.estado === "completada"
+                                ? "bg-blue-100 text-blue-800"
+                                : cita.estado === "cancelada"
+                                  ? "bg-red-100 text-red-800"
+                                  : cita.estado === "confirmada"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {cita.estado === "reservada" && "📋 Reservada"}
+                            {cita.estado === "confirmada" && "✅ Confirmada"}
+                            {cita.estado === "completada" && "💈 Completada"}
+                            {cita.estado === "cancelada" && "❌ Cancelada"}
+                            {![
+                              "reservada",
+                              "confirmada",
+                              "completada",
+                              "cancelada",
+                            ].includes(cita.estado) && cita.estado}
+                          </span>
+                        </td>
+                        <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                          {(() => {
+                            const ep = cita.estado_pago;
+                            if (!ep)
+                              return (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-400 rounded-full text-xs">
+                                  💳 Pendiente
+                                </span>
+                              );
+                            if (ep === "pendiente_aprobacion")
+                              return (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
+                                  ⏳ En revisión
+                                </span>
+                              );
+                            if (ep === "completado")
+                              return (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                                  ✅ Pagado
+                                </span>
+                              );
+                            if (ep === "rechazado")
+                              return (
+                                <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                                  ❌ Rechazado
+                                </span>
+                              );
+                            return (
+                              <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs capitalize">
+                                {ep}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200 text-sm sm:text-base">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ID
+                    </th>
+                    <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cliente
+                    </th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Servicio
+                    </th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fecha
+                    </th>
+                    <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Hora
+                    </th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Pago
+                    </th>
+                    {currentUser?.rol === "cliente" && (
+                      <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Saldo
+                      </th>
+                    )}
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {citas.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="8"
+                        className="px-6 py-8 text-center text-gray-500"
+                      >
+                        No hay citas disponibles. ¡Crea la primera!
+                      </td>
+                    </tr>
+                  ) : (
+                    citas.map((cita) => (
+                      <tr key={cita.id} className="hover:bg-gray-50">
+                        <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                          #{cita.id}
+                        </td>
+                        <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-semibold text-gray-900">
+                            {cita.nombre_usuario ||
+                              getUsuarioNombre(cita.id_usuario)}
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4">
+                          <span className="text-sm text-gray-600 font-semibold">
+                            {cita.nombre_servicio ||
+                              getServicioNombre(cita.id_servicio)}
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="text-sm text-gray-900 font-semibold">
+                              {cita.fecha_hora
+                                ? cita.fecha_hora.split(" ")[0] ||
+                                  cita.fecha_hora.substring(0, 10)
+                                : "N/A"}
+                            </span>
+                            <span className="sm:hidden text-xs font-bold text-teal-600">
+                              {cita.fecha_hora
+                                ? cita.fecha_hora.includes("T")
+                                  ? cita.fecha_hora.substring(11, 16)
+                                  : cita.fecha_hora.substring(11, 16)
+                                : ""}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-bold text-teal-600">
+                            ⏰{" "}
                             {cita.fecha_hora
                               ? cita.fecha_hora.includes("T")
                                 ? cita.fecha_hora.substring(11, 16)
                                 : cita.fecha_hora.substring(11, 16)
                               : ""}
                           </span>
-                        </div>
-                      </td>
-                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-bold text-teal-600">
-                          ⏰{" "}
-                          {cita.fecha_hora
-                            ? cita.fecha_hora.includes("T")
-                              ? cita.fecha_hora.substring(11, 16)
-                              : cita.fecha_hora.substring(11, 16)
-                            : ""}
-                        </span>
-                      </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            cita.estado === "completada"
-                              ? "bg-blue-100 text-blue-800"
-                              : cita.estado === "cancelada"
-                                ? "bg-red-100 text-red-800"
-                                : cita.estado === "confirmada"
-                                  ? "bg-green-100 text-green-800"
-                                  : cita.estado === "reservada"
-                                    ? "bg-amber-100 text-amber-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {cita.estado === "reservada" && "📋 Reservada"}
-                          {cita.estado === "confirmada" && "✅ Confirmada"}
-                          {cita.estado === "completada" && "💈 Completada"}
-                          {cita.estado === "cancelada" && "❌ Cancelada"}
-                          {cita.estado !== "reservada" &&
-                            cita.estado !== "confirmada" &&
-                            cita.estado !== "completada" &&
-                            cita.estado !== "cancelada" &&
-                            cita.estado}
-                        </span>
-                      </td>
-                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
-                        {(() => {
-                          const ep = cita.estado_pago;
-                          if (!ep)
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              cita.estado === "completada"
+                                ? "bg-blue-100 text-blue-800"
+                                : cita.estado === "cancelada"
+                                  ? "bg-red-100 text-red-800"
+                                  : cita.estado === "confirmada"
+                                    ? "bg-green-100 text-green-800"
+                                    : cita.estado === "reservada"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {cita.estado === "reservada" && "📋 Reservada"}
+                            {cita.estado === "confirmada" && "✅ Confirmada"}
+                            {cita.estado === "completada" && "💈 Completada"}
+                            {cita.estado === "cancelada" && "❌ Cancelada"}
+                            {cita.estado !== "reservada" &&
+                              cita.estado !== "confirmada" &&
+                              cita.estado !== "completada" &&
+                              cita.estado !== "cancelada" &&
+                              cita.estado}
+                          </span>
+                        </td>
+                        <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                          {(() => {
+                            const ep = cita.estado_pago;
+                            if (!ep)
+                              return (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-400 rounded-full text-xs">
+                                  💳 Pendiente de pago
+                                </span>
+                              );
+                            if (ep === "pendiente_aprobacion")
+                              return (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
+                                  ⏳ En revisión
+                                </span>
+                              );
+                            if (ep === "completado")
+                              return (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                                  ✅ Pagado
+                                </span>
+                              );
+                            if (ep === "rechazado")
+                              return (
+                                <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                                  ❌ Rechazado
+                                </span>
+                              );
                             return (
-                              <span className="px-2 py-1 bg-gray-100 text-gray-400 rounded-full text-xs">
-                                💳 Pendiente de pago
+                              <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs capitalize">
+                                {ep}
                               </span>
                             );
-                          if (ep === "pendiente_aprobacion")
-                            return (
-                              <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
-                                ⏳ En revisión
+                          })()}
+                        </td>
+                        {/* Columna Saldo — solo clientes, datos de /mis-citas */}
+                        {currentUser?.rol === "cliente" && (
+                          <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                            {cita.saldo_pendiente > 0 ? (
+                              <span className="text-sm font-bold text-amber-600">
+                                $
+                                {Number(cita.saldo_pendiente).toLocaleString(
+                                  "es-CO",
+                                )}
                               </span>
-                            );
-                          if (ep === "completado")
-                            return (
-                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                                ✅ Pagado
+                            ) : (
+                              <span className="text-xs text-green-600 font-semibold">
+                                ✓ Al día
                               </span>
-                            );
-                          if (ep === "rechazado")
-                            return (
-                              <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
-                                ❌ Rechazado
-                              </span>
-                            );
-                          return (
-                            <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs capitalize">
-                              {ep}
-                            </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          {currentUser?.rol === "admin" ? (
-                            <>
-                              {/* Completar: si está confirmada o reservada (usa PUT /completar) */}
-                              {(cita.estado === "confirmada" ||
-                                cita.estado === "reservada") && (
-                                <button
-                                  onClick={() => handleCompletarCita(cita.id)}
-                                  className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
-                                >
-                                  💈 Completar
-                                </button>
-                              )}
-                              {/* Confirmar: si está reservada */}
-                              {cita.estado === "reservada" && (
-                                <button
-                                  onClick={() =>
-                                    handleCambiarEstado(cita.id, "confirmada")
-                                  }
-                                  className="bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
-                                >
-                                  ✅ Confirmar
-                                </button>
-                              )}
-                              {cita.estado === "completada" && (
-                                <button
-                                  onClick={() => navigate("/pagos")}
-                                  className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
-                                >
-                                  💰 Cobrar
-                                </button>
-                              )}
-                              {cita.estado !== "cancelada" &&
-                                cita.estado !== "completada" && (
+                            )}
+                            {cita.motivo_rechazo && (
+                              <p
+                                className="text-xs text-red-500 mt-1"
+                                title={cita.motivo_rechazo}
+                              >
+                                ⚠️{" "}
+                                {cita.motivo_rechazo.length > 30
+                                  ? cita.motivo_rechazo.substring(0, 30) + "…"
+                                  : cita.motivo_rechazo}
+                              </p>
+                            )}
+                          </td>
+                        )}
+                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            {currentUser?.rol === "admin" ? (
+                              <>
+                                {/* Completar: si está confirmada o reservada (usa PUT /completar) */}
+                                {(cita.estado === "confirmada" ||
+                                  cita.estado === "reservada") && (
                                   <button
-                                    onClick={() =>
-                                      handleCambiarEstado(cita.id, "cancelada")
-                                    }
-                                    className="bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                    onClick={() => handleCompletarCita(cita.id)}
+                                    className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
                                   >
-                                    ❌ Cancelar
+                                    💈 Completar
                                   </button>
                                 )}
-                              <button
-                                onClick={() => handleEdit(cita)}
-                                className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
-                              >
-                                ✏️ Editar
-                              </button>
-                              <button
-                                onClick={() => handleDelete(cita.id)}
-                                className="bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-600 hover:to-pink-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
-                              >
-                                🗑️ Eliminar
-                              </button>
-                            </>
-                          ) : (
-                            cita.estado !== "cancelada" &&
-                            cita.estado !== "completada" && (
-                              <button
-                                onClick={() => handleCancel(cita.id)}
-                                className="bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm w-full"
-                              >
-                                ❌ Cancelar
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                                {/* Confirmar: si está reservada */}
+                                {cita.estado === "reservada" && (
+                                  <button
+                                    onClick={() =>
+                                      handleCambiarEstado(cita.id, "confirmada")
+                                    }
+                                    className="bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                  >
+                                    ✅ Confirmar
+                                  </button>
+                                )}
+                                {cita.estado === "completada" && (
+                                  <button
+                                    onClick={() => navigate("/pagos")}
+                                    className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                  >
+                                    💰 Cobrar
+                                  </button>
+                                )}
+                                {cita.estado !== "cancelada" &&
+                                  cita.estado !== "completada" && (
+                                    <button
+                                      onClick={() =>
+                                        handleCambiarEstado(
+                                          cita.id,
+                                          "cancelada",
+                                        )
+                                      }
+                                      className="bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                    >
+                                      ❌ Cancelar
+                                    </button>
+                                  )}
+                                <button
+                                  onClick={() => handleEdit(cita)}
+                                  className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                >
+                                  ✏️ Editar
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(cita.id)}
+                                  className="bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-600 hover:to-pink-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                >
+                                  🗑️ Eliminar
+                                </button>
+                              </>
+                            ) : (
+                              cita.estado !== "cancelada" &&
+                              cita.estado !== "completada" && (
+                                <button
+                                  onClick={() => handleCancel(cita.id)}
+                                  className="bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm w-full"
+                                >
+                                  ❌ Cancelar
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
@@ -1207,6 +1432,62 @@ function Citas() {
                   </p>
                 </div>
 
+                {/* Monto a enviar */}
+                {(() => {
+                  const servicio = servicios.find(
+                    (s) => s.id === parseInt(pasoPostCita.servicioId),
+                  );
+                  const precioTotal = parseFloat(servicio?.precio || 0);
+                  const limpiar = (v) =>
+                    parseFloat(
+                      String(v)
+                        .replace(/\.(?=\d{3}(?:\.|$))/g, "")
+                        .replace(",", "."),
+                    ) || 0;
+                  const montoParcial = montoModal.trim()
+                    ? limpiar(montoModal)
+                    : null;
+                  const saldoCaja =
+                    montoParcial !== null ? precioTotal - montoParcial : null;
+                  return (
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        💵 ¿Cuánto envías por{" "}
+                        <span className="capitalize">
+                          {pasoPostCita.metodo}
+                        </span>
+                        ?
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 font-semibold">$</span>
+                        <input
+                          type="text"
+                          placeholder={`Total: ${precioTotal.toLocaleString("es-CO")}`}
+                          value={montoModal}
+                          onChange={(e) => setMontoModal(e.target.value)}
+                          className="flex-1 border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-400 transition"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-gray-400">
+                        Déjalo vacío si pagas el total por este método.
+                      </p>
+                      {saldoCaja !== null && saldoCaja > 0 && (
+                        <div className="mt-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-sm text-amber-800">
+                          💰 Saldo restante a pagar en caja:{" "}
+                          <span className="font-bold">
+                            ${saldoCaja.toLocaleString("es-CO")}
+                          </span>
+                        </div>
+                      )}
+                      {saldoCaja !== null && saldoCaja < 0 && (
+                        <p className="mt-1 text-xs text-red-500">
+                          ⚠️ El monto supera el precio del servicio.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* File input */}
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -1246,6 +1527,7 @@ function Citas() {
                       setPasoPostCita(null);
                       setComprobante(null);
                       setComprobanteFile(null);
+                      setMontoModal("");
                     }}
                     disabled={loadingPago}
                     className="px-4 py-3 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold hover:bg-gray-50 transition disabled:opacity-50"
