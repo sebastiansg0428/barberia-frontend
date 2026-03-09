@@ -182,7 +182,6 @@ function Citas() {
       return;
     }
 
-    let newCita = null;
     try {
       // Construir fecha_hora en formato correcto (YYYY-MM-DD HH:MM:SS)
       let fechaHora = "";
@@ -279,7 +278,6 @@ function Citas() {
         }
 
         const citaCreada = await response.json();
-        newCita = citaCreada;
 
         const citaId =
           citaCreada?.cita?.id || citaCreada?.id_cita || citaCreada?.id;

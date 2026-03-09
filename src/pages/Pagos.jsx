@@ -100,7 +100,6 @@ function Pagos() {
   /* --- cliente state --- */
   const [misPagos, setMisPagos] = useState([]);
   const [citasUsuario, setCitasUsuario] = useState([]);
-  const [resumenCliente, setResumenCliente] = useState(null);
   // formComprobante: { citaId, metodo, archivo } — formulario inline de subida
   const [formComprobante, setFormComprobante] = useState(null);
 
@@ -311,16 +310,6 @@ function Pagos() {
       });
     } catch {
       setHistorialModal({ pagoId, data: [] });
-    }
-  };
-
-  const getResumenCliente = async (userId) => {
-    try {
-      const res = await fetch(`${API_URL}/pagos/usuario/${userId}/resumen`);
-      const data = await res.json();
-      setResumenCliente(data);
-    } catch {
-      setResumenCliente(null);
     }
   };
 
@@ -701,7 +690,6 @@ function Pagos() {
       Promise.all([
         getMisPagos(user.id),
         getCitasUsuario(user.id),
-        getResumenCliente(user.id),
         getNotificaciones(user.id),
       ]).finally(() => setLoading(false));
     }
@@ -2248,41 +2236,6 @@ function Pagos() {
                 {misPagos.length} pago(s) registrado(s)
               </p>
             </div>
-
-            {/* Resumen financiero del cliente */}
-            {resumenCliente && (
-              <div className="bg-gradient-to-br from-violet-50 to-pink-50 rounded-xl shadow p-5 border border-violet-200">
-                <h3 className="text-lg font-bold text-violet-700 mb-4">
-                  💰 Mi Resumen Financiero
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-                    <p className="text-xs text-gray-500">Total pagado</p>
-                    <p className="text-xl font-bold text-green-700">
-                      ${fmtMonto(resumenCliente.totalPagado)}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-                    <p className="text-xs text-gray-500">Saldo pendiente</p>
-                    <p className="text-xl font-bold text-amber-600">
-                      ${fmtMonto(resumenCliente.saldoPendiente)}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-                    <p className="text-xs text-gray-500">Nº citas</p>
-                    <p className="text-xl font-bold text-violet-700">
-                      {resumenCliente.totalCitas ?? 0}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-                    <p className="text-xs text-gray-500">Propinas</p>
-                    <p className="text-xl font-bold text-pink-600">
-                      ${fmtMonto(resumenCliente.totalPropinas)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Estado de citas */}
             {citasUsuario.length > 0 && (
