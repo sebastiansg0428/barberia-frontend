@@ -154,7 +154,7 @@ function Servicios() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Navbar Responsive */}
-      <nav className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white shadow-lg sticky top-0 z-50">
+      <nav className="bg-gradient-to-r from-zinc-900 to-stone-900 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h2 className="text-xl sm:text-2xl font-bold">✂️ Barbería K-19</h2>
@@ -235,7 +235,7 @@ function Servicios() {
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mb-6 sm:mb-8 border border-gray-100">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div>
-              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-amber-500 to-yellow-400 bg-clip-text text-transparent mb-2">
                 💈{" "}
                 {currentUser?.rol === "admin"
                   ? "Gestión de Servicios"
@@ -243,7 +243,7 @@ function Servicios() {
               </h1>
               <p className="text-gray-600 text-base sm:text-lg">
                 Total de servicios:{" "}
-                <span className="font-bold text-indigo-600">
+                <span className="font-bold text-amber-600">
                   {servicios.length}
                 </span>
               </p>
@@ -251,7 +251,7 @@ function Servicios() {
             {currentUser?.rol === "admin" && (
               <button
                 onClick={() => setShowForm(!showForm)}
-                className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:from-cyan-600 hover:via-blue-600 hover:to-indigo-700 transform transition hover:scale-105 shadow-lg w-full sm:w-auto"
+                className="bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:from-amber-600 hover:via-yellow-600 hover:to-orange-600 transform transition hover:scale-105 shadow-lg w-full sm:w-auto"
               >
                 {showForm ? "✕ Cancelar" : "+ Nuevo Servicio"}
               </button>

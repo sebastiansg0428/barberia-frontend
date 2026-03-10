@@ -925,7 +925,7 @@ function Pagos() {
         </div>
       )}
       {/* NAVBAR */}
-      <nav className="bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-white shadow-lg sticky top-0 z-50">
+      <nav className="bg-gradient-to-r from-zinc-900 to-stone-900 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h2 className="text-xl sm:text-2xl font-bold">Barberia K-19</h2>
@@ -1495,7 +1495,7 @@ function Pagos() {
             {/* Header + boton */}
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-500 to-yellow-400 bg-clip-text text-transparent">
                   Gestion de Pagos
                 </h1>
                 <p className="text-gray-500 mt-1">{pagos.length} pago(s)</p>
@@ -1506,7 +1506,7 @@ function Pagos() {
                     setShowFormAdmin(!showFormAdmin);
                     setShowFormMixto(false);
                   }}
-                  className="bg-gradient-to-r from-violet-500 to-pink-600 hover:from-violet-600 hover:to-pink-700 text-white px-5 py-3 rounded-lg font-bold transition shadow-lg"
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-5 py-3 rounded-lg font-bold transition shadow-lg"
                 >
                   {showFormAdmin ? "✕ Cancelar" : "+ Pago Manual"}
                 </button>
@@ -2313,7 +2313,7 @@ function Pagos() {
         {currentUser?.rol !== "admin" && (
           <>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent mb-1">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-500 to-yellow-400 bg-clip-text text-transparent mb-1">
                 Mis Pagos
               </h1>
               <p className="text-gray-500">
@@ -2431,7 +2431,7 @@ function Pagos() {
                                       archivo: null,
                                     })
                                   }
-                                  className="bg-gradient-to-r from-violet-500 to-pink-500 hover:from-violet-600 hover:to-pink-600 text-white px-4 py-2 rounded-lg font-semibold text-sm transition"
+                                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-4 py-2 rounded-lg font-semibold text-sm transition"
                                 >
                                   📤{" "}
                                   {rechazado

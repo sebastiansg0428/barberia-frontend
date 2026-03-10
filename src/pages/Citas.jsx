@@ -591,7 +591,7 @@ function Citas() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Navbar Responsive */}
-      <nav className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg sticky top-0 z-50">
+      <nav className="bg-gradient-to-r from-zinc-900 to-stone-900 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h2 className="text-xl sm:text-2xl font-bold">✂️ Barbería K-19</h2>
@@ -672,7 +672,7 @@ function Citas() {
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mb-6 sm:mb-8 border border-gray-100">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div>
-              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-amber-500 to-yellow-400 bg-clip-text text-transparent mb-2">
                 📅{" "}
                 {currentUser?.rol === "admin"
                   ? "Gestión de Citas"
@@ -688,7 +688,7 @@ function Citas() {
             {currentUser?.rol !== "barbero" && (
               <button
                 onClick={() => setShowForm(!showForm)}
-                className="bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:from-cyan-600 hover:via-teal-600 hover:to-emerald-700 transform transition hover:scale-105 shadow-lg w-full sm:w-auto"
+                className="bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:from-amber-600 hover:via-yellow-600 hover:to-orange-600 transform transition hover:scale-105 shadow-lg w-full sm:w-auto"
               >
                 {showForm ? "✕ Cancelar" : "+ Nueva Cita"}
               </button>
@@ -935,7 +935,7 @@ function Citas() {
                 <button
                   type="submit"
                   disabled={loadingPago}
-                  className="flex-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 text-white py-3 px-6 rounded-lg font-bold hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 transition transform hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 text-white py-3 px-6 rounded-lg font-bold hover:from-amber-600 hover:via-yellow-600 hover:to-orange-600 transition transform hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loadingPago
                     ? "⏳ Enviando pago..."
@@ -1314,7 +1314,7 @@ function Citas() {
                                 {cita.estado === "completada" && (
                                   <button
                                     onClick={() => navigate("/pagos")}
-                                    className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
+                                    className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 px-3 py-1.5 rounded-lg font-semibold transition transform hover:scale-105 shadow-md text-xs sm:text-sm"
                                   >
                                     💰 Cobrar
                                   </button>
@@ -1394,7 +1394,7 @@ function Citas() {
                 </div>
                 <button
                   onClick={() => setPasoPostCita(null)}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-xl font-bold hover:from-emerald-600 hover:to-teal-700 transition"
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-xl font-bold hover:from-amber-600 hover:to-orange-600 transition"
                 >
                   Entendido
                 </button>
@@ -1518,7 +1518,7 @@ function Citas() {
                   <button
                     onClick={handleSubirComprobanteModal}
                     disabled={loadingPago || !comprobanteFile}
-                    className="flex-1 bg-gradient-to-r from-violet-500 to-purple-600 text-white py-3 rounded-xl font-bold hover:from-violet-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-xl font-bold hover:from-amber-600 hover:to-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loadingPago ? "⏳ Enviando..." : "📤 Enviar comprobante"}
                   </button>

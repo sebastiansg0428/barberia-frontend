@@ -175,7 +175,7 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <nav className="bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-md">
+      <nav className="bg-gradient-to-r from-zinc-900 to-stone-900 text-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h2 className="text-2xl font-bold">✂️ Barbería K-19</h2>
@@ -199,7 +199,7 @@ function Dashboard() {
               </svg>
             </button>
             <div
-              className={`flex-col sm:flex-row sm:flex items-center space-y-2 sm:space-y-0 sm:space-x-4 absolute sm:static top-16 left-0 w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 sm:bg-none p-4 sm:p-0 transition-all duration-200 z-40 ${menuOpen ? "flex" : "hidden sm:flex"}`}
+              className={`flex-col sm:flex-row sm:flex items-center space-y-2 sm:space-y-0 sm:space-x-4 absolute sm:static top-16 left-0 w-full sm:w-auto bg-gradient-to-r from-zinc-800 to-stone-800 sm:bg-none p-4 sm:p-0 transition-all duration-200 z-40 ${menuOpen ? "flex" : "hidden sm:flex"}`}
             >
               {currentUser?.rol === "admin" ? (
                 <>
@@ -208,7 +208,7 @@ function Dashboard() {
                       setMenuOpen(false);
                       navigate("/servicios");
                     }}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition w-full sm:w-auto"
+                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-semibold transition w-full sm:w-auto"
                   >
                     💈 Gestión de Servicios
                   </button>
@@ -217,7 +217,7 @@ function Dashboard() {
                       setMenuOpen(false);
                       navigate("/citas");
                     }}
-                    className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-green-700 hover:to-teal-700 transition w-full sm:w-auto"
+                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-semibold transition w-full sm:w-auto"
                   >
                     📅 Gestión de Citas
                   </button>
@@ -226,7 +226,7 @@ function Dashboard() {
                       setMenuOpen(false);
                       navigate("/pagos");
                     }}
-                    className="bg-gradient-to-r from-violet-600 to-pink-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-violet-700 hover:to-pink-700 transition w-full sm:w-auto"
+                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-semibold transition w-full sm:w-auto"
                   >
                     💸 Gestión de Pagos
                   </button>
@@ -258,17 +258,17 @@ function Dashboard() {
         {currentUser?.rol !== "admin" && (
           <div className="space-y-6">
             {/* Bienvenida */}
-            <div className="relative bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 rounded-2xl shadow-xl p-8 text-white overflow-hidden">
+            <div className="relative bg-gradient-to-r from-zinc-800 via-stone-800 to-zinc-900 rounded-2xl shadow-xl p-8 text-white overflow-hidden">
               <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/10 rounded-full" />
               <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-white/10 rounded-full" />
               <div className="relative z-10">
-                <p className="text-violet-200 text-sm font-semibold tracking-wide uppercase mb-1">
+                <p className="text-amber-300 text-sm font-semibold tracking-wide uppercase mb-1">
                   Bienvenido de nuevo
                 </p>
                 <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">
                   {currentUser?.nombre} ✨
                 </h1>
-                <p className="text-violet-100 text-sm">
+                <p className="text-amber-100 text-sm">
                   Gestioná tus citas y pagos desde aquí.
                 </p>
               </div>
@@ -280,11 +280,11 @@ function Dashboard() {
                 onClick={() => navigate("/citas")}
                 className="group bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 p-6 flex items-center gap-5 transition hover:-translate-y-1"
               >
-                <div className="bg-gradient-to-br from-green-400 to-teal-500 p-4 rounded-xl text-white text-3xl shadow-md">
+                <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-4 rounded-xl text-white text-3xl shadow-md">
                   📅
                 </div>
                 <div className="text-left">
-                  <p className="text-lg font-bold text-gray-800 group-hover:text-green-600 transition">
+                  <p className="text-lg font-bold text-gray-800 group-hover:text-amber-600 transition">
                     Mis Citas
                   </p>
                   <p className="text-sm text-gray-500">Ver y agendar turnos</p>
@@ -295,11 +295,11 @@ function Dashboard() {
                 onClick={() => navigate("/pagos")}
                 className="group bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 p-6 flex items-center gap-5 transition hover:-translate-y-1"
               >
-                <div className="bg-gradient-to-br from-violet-500 to-pink-500 p-4 rounded-xl text-white text-3xl shadow-md">
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-xl text-white text-3xl shadow-md">
                   💳
                 </div>
                 <div className="text-left">
-                  <p className="text-lg font-bold text-gray-800 group-hover:text-violet-600 transition">
+                  <p className="text-lg font-bold text-gray-800 group-hover:text-emerald-600 transition">
                     Mis Pagos
                   </p>
                   <p className="text-sm text-gray-500">
@@ -312,11 +312,11 @@ function Dashboard() {
                 onClick={() => navigate("/servicios")}
                 className="group bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 p-6 flex items-center gap-5 transition hover:-translate-y-1"
               >
-                <div className="bg-gradient-to-br from-fuchsia-500 to-purple-500 p-4 rounded-xl text-white text-3xl shadow-md">
+                <div className="bg-gradient-to-br from-amber-500 to-yellow-500 p-4 rounded-xl text-white text-3xl shadow-md">
                   💈
                 </div>
                 <div className="text-left">
-                  <p className="text-lg font-bold text-gray-800 group-hover:text-fuchsia-600 transition">
+                  <p className="text-lg font-bold text-gray-800 group-hover:text-amber-600 transition">
                     Servicios
                   </p>
                   <p className="text-sm text-gray-500">
