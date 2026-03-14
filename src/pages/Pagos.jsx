@@ -602,7 +602,10 @@ function Pagos() {
         saldoPendiente,
       );
       if (montoRecibidoStr === null) return;
-      montoRecibido = parseFloat(montoRecibidoStr);
+      // Limpiar puntos de miles colombianos: "20.000" → 20000, "4.91" → 4.91
+      montoRecibido = parseFloat(
+        montoRecibidoStr.replace(/\.(?=\d{3}(?:\.|$))/g, "").replace(",", "."),
+      );
       if (isNaN(montoRecibido) || montoRecibido <= 0) {
         alert("⚠️ Ingresa un monto válido.");
         return;
